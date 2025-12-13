@@ -10,11 +10,50 @@ A full-stack budget tracking application with React frontend, FastAPI backend, a
 - **Cache/Queue**: Redis 7
 - **Containerization**: Docker + Docker Compose
 
+## First-Time Setup (For Junior Developers)
+
+If you're new to Docker or setting up your development environment for the first time, follow these steps:
+
+### 1. Install Docker Desktop
+
+**Download and Install:**
+- **macOS**: Download from [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/)
+- **Windows**: Download from [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
+- **Linux**: Follow instructions at [Docker Engine for Linux](https://docs.docker.com/engine/install/)
+
+**After Installation:**
+1. Open Docker Desktop application
+2. Wait for it to fully start (you'll see a green "running" status)
+3. Docker Desktop includes Docker Compose, so you'll have everything you need
+
+### 2. Verify Installation
+
+Open your terminal and run:
+```bash
+docker --version
+docker-compose --version
+```
+
+You should see version numbers for both commands.
+
+### 3. Clone the Repository
+
+```bash
+git clone git@github.com:Code-Campfire/smores-syntax.git
+cd smores-syntax
+```
+
+### 4. Need Help?
+
+- **Ask Claude Code**: If you run into issues during setup, ask Claude (claude.ai/code) to help troubleshoot. Claude can help with Docker installation, configuration, and common errors.
+
+- **Stuck or Running Older Hardware?**: If you're completely stuck or running on an older computer that can't handle Docker Desktop, reach out to your **team lead or admins** for assistance. They can help with alternative setup options or hardware upgrades.
+
 ## Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose installed on your system
+- Docker Desktop installed and running on your system (see "First-Time Setup" above if you haven't installed it yet)
 
 ### Running the Application
 
