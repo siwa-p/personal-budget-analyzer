@@ -166,3 +166,4 @@ This is a basic skeleton setup. To add features:
 **Database connection errors**: Wait a few seconds for the database to fully initialize on first run.
 
 **Frontend can't connect to backend**: Make sure the `VITE_API_URL` environment variable is set correctly.
+
