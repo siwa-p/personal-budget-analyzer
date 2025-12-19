@@ -133,10 +133,41 @@ async def create_transaction(transaction: TransactionCreate, db: Session = Depen
     }
 
 @app.get("/transactions")
-async def get_all_transactions(db: Session = Depends(get_db)):
-    transactions = db.query(Transactions).all()
+async def get_all_transactions(
+    page_number: int = 1,
+    page_size: int = 10,
+    user_id: int | None = None,
+    category_id: int | None = None,
+    transaction_type: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    db: Session = Depends(get_db)
+):
+    # Start building the query
+    query = db.query(Transactions)
+
+    # Apply filters
+    if user_id is not None:
+        query = query.filter(Transactions.user_id == user_id)
+    if category_id is not None:
+        query = query.filter(Transactions.category_id == category_id)
+    if transaction_type is not None:
+        query = query.filter(Transactions.transaction_type == transaction_type)
+    if start_date is not None:
+        query = query.filter(Transactions.transaction_date >= start_date)
+    if end_date is not None:
+        query = query.filter(Transactions.transaction_date <= end_date)
+    total = query.count()
+    # Calculate pagination metadata
+    total_pages = (total + page_size - 1) // page_size  # Ceiling division
+    # Apply sorting and pagination
+    offset = (page_number - 1) * page_size
+    transactions = query.order_by(Transactions.transaction_date.desc()).offset(offset).limit(page_size).all()
     return {
-        "count": len(transactions),
+        "total": total,
+        "page": page_number,
+        "page_size": page_size,
+        "total_pages": total_pages,
         "transactions": [
             {
                 "id": transaction.id,
