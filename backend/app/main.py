@@ -3,8 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import engine, get_db
-from app.db.base import Base, Users, Categories
-
+from app.db.base import Base, Users, Categories, Transactions, Bills
+from pydantic import BaseModel
+from datetime import date
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
@@ -22,8 +23,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
+    
 @app.get("/")
 async def root():
     return {
@@ -41,12 +41,17 @@ async def health_check():
         "version": settings.VERSION
     }
 
-
-# API v1 routes would be added here
-# from app.api.v1.api import api_router
-# app.include_router(api_router, prefix=settings.API_V1_STR)
-
-
+class TransactionCreate(BaseModel):
+    user_id: int
+    category_id: int
+    amount: float
+    description: str
+    transaction_date: date
+    bill_id: int
+    transaction_type: str
+    account_name: str
+    
+    
 @app.get("/test/users")
 async def get_all_users(db: Session = Depends(get_db)):
     users = db.query(Users).all()
@@ -78,3 +83,114 @@ async def get_all_categories(db: Session = Depends(get_db)):
             for cat in categories
         ]
     }
+@app.get("/test/bills")
+async def get_all_bills(db: Session = Depends(get_db)):
+    bills = db.query(Bills).all()
+    return {
+        "count": len(bills),
+        "bills": [
+            {
+                "id": bill.id,
+                "user_id": bill.user_id,
+                "title": bill.title,
+                "amount": bill.amount,
+                "due_date": bill.due_date,
+                "recurrence": bill.recurrence,
+                "last_paid_date": bill.last_paid_date
+            }
+            for bill in bills
+        ]
+    }
+
+@app.post("/transactions/create")
+async def create_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
+    new_transaction = Transactions(
+        user_id=transaction.user_id,
+        category_id=transaction.category_id,
+        amount=transaction.amount,
+        description=transaction.description,
+        transaction_date=transaction.transaction_date,
+        bill_id=transaction.bill_id,
+        transaction_type=transaction.transaction_type,
+        account_name=transaction.account_name
+    )
+    db.add(new_transaction)
+    db.commit()
+    db.refresh(new_transaction)
+    return {
+        "message": "Transaction created successfully",
+        "transaction": {
+            "id": new_transaction.id,
+            "user_id": new_transaction.user_id,
+            "category_id": new_transaction.category_id,
+            "amount": new_transaction.amount,
+            "description": new_transaction.description,
+            "transaction_date": new_transaction.transaction_date,
+            "bill_id": new_transaction.bill_id,
+            "transaction_type": new_transaction.transaction_type,
+            "account_name": new_transaction.account_name
+        }
+    }
+
+@app.get("/transactions")
+async def get_all_transactions(db: Session = Depends(get_db)):
+    transactions = db.query(Transactions).all()
+    return {
+        "count": len(transactions),
+        "transactions": [
+            {
+                "id": transaction.id,
+                "user_id": transaction.user_id,
+                "category_id": transaction.category_id,
+                "amount": transaction.amount,
+                "description": transaction.description,
+                "transaction_date": transaction.transaction_date,
+                "bill_id": transaction.bill_id,
+                "transaction_type": transaction.transaction_type,
+                "account_name": transaction.account_name
+            }
+            for transaction in transactions
+        ]
+    }
+    
+@app.post("/transactions/{transaction_id}/update")
+async def update_transaction(transaction_id: int, transaction: TransactionCreate, db: Session = Depends(get_db)):
+    existing_transaction = db.query(Transactions).filter_by(id=transaction_id).first()
+    if not existing_transaction:
+        return {"error": "Transaction not found"}
+
+    existing_transaction.user_id = transaction.user_id
+    existing_transaction.category_id = transaction.category_id
+    existing_transaction.amount = transaction.amount
+    existing_transaction.description = transaction.description
+    existing_transaction.transaction_date = transaction.transaction_date
+    existing_transaction.bill_id = transaction.bill_id
+    existing_transaction.transaction_type = transaction.transaction_type
+    existing_transaction.account_name = transaction.account_name
+
+    db.commit()
+    db.refresh(existing_transaction)
+    return {
+        "message": "Transaction updated successfully",
+        "transaction": {
+            "id": existing_transaction.id,
+            "user_id": existing_transaction.user_id,
+            "category_id": existing_transaction.category_id,
+            "amount": existing_transaction.amount,
+            "description": existing_transaction.description,
+            "transaction_date": existing_transaction.transaction_date,
+            "bill_id": existing_transaction.bill_id,
+            "transaction_type": existing_transaction.transaction_type,
+            "account_name": existing_transaction.account_name
+        }
+    }
+
+@app.post("/transactions/{transaction_id}/delete")
+def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
+    existing_transaction =db.query(Transactions).filter_by(id=transaction_id).first()
+    if not existing_transaction:
+        return {"error": "Transaction not found"}
+    db.delete(existing_transaction)
+    db.commit()
+    return {"message": "Transaction deleted successfully"}
+    
