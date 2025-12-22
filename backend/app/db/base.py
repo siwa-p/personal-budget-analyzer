@@ -15,6 +15,8 @@ class Transactions(Base):
     description: Mapped[str | None] = mapped_column(String, nullable=True)
     transaction_date: Mapped[Date] = mapped_column(Date, nullable=False)
     bill_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("bills.id"), nullable=True)
+    transaction_type: Mapped[str] = mapped_column(String, nullable=False)  # 'income' or 'expense'
+    account_name: Mapped[str | None] = mapped_column(String, nullable=True)
     
     def __repr__(self) -> str:
         return f"<Transaction(id={self.id}, user_id={self.user_id}, amount={self.amount}, date={self.transaction_date})>"
@@ -25,7 +27,7 @@ class Users(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String, unique=False, nullable=False)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.00)
 
@@ -50,7 +52,7 @@ class Categories(Base):
     __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String, unique=False, nullable=False)
     type: Mapped[str] = mapped_column(String, nullable=False)  # 'income' or 'expense'
     user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 
