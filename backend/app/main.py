@@ -50,9 +50,13 @@ class TransactionCreate(BaseModel):
     bill_id: int
     transaction_type: str
     account_name: str
+
+class CategoriesCreate(BaseModel):
+    name: str
+    type: str
     
     
-@app.get("/test/users")
+@app.get("/users")
 async def get_all_users(db: Session = Depends(get_db)):
     users = db.query(Users).all()
     return {
@@ -67,8 +71,8 @@ async def get_all_users(db: Session = Depends(get_db)):
             for user in users
         ]
     }
-
-@app.get("/test/categories")
+    
+@app.get("/categories")
 async def get_all_categories(db: Session = Depends(get_db)):
     categories = db.query(Categories).all()
     return {
@@ -83,6 +87,86 @@ async def get_all_categories(db: Session = Depends(get_db)):
             for cat in categories
         ]
     }
+    
+@app.get("/categories/user/{user_id}")
+async def get_categories_by_user(user_id: int | None = None, db: Session = Depends(get_db)):
+    # Get both system categories (user_id=NULL) and user's custom categories
+    if user_id is not None:
+        categories = db.query(Categories).filter(
+            (Categories.user_id == None) | (Categories.user_id == user_id)
+        ).all()
+    else:
+        # If no user_id provided, return all categories
+        categories = db.query(Categories).all()
+    return {
+        "count": len(categories),
+        "categories": [
+            {
+                "id": cat.id,
+                "name": cat.name,
+                "type": cat.type,
+                "user_id": cat.user_id
+            }
+            for cat in categories
+        ]
+    }
+
+@app.post("/categories/create/{user_id}")
+async def create_category(user_id: int, category: CategoriesCreate, db: Session = Depends(get_db)):
+    # Verify user exists
+    user = db.query(Users).filter_by(id=user_id).first()
+    if not user:
+        return {"error": "User not found"}, 404
+
+    new_category = Categories(
+        name=category.name,
+        type=category.type,
+        user_id=user_id
+    )
+    db.add(new_category)
+    db.commit()
+    db.refresh(new_category)
+    return {
+        "message": "Category created successfully",
+        "category": {
+            "id": new_category.id,
+            "name": new_category.name,
+            "type": new_category.type,
+            "user_id": new_category.user_id
+        }
+    }
+    
+@app.post("/categories/{category_id}/update/{user_id}")
+async def update_category(category_id: int, user_id: int, category: CategoriesCreate, db: Session = Depends(get_db)):
+    existing_category = db.query(Categories).filter_by(id=category_id).first()
+    if not existing_category:
+        return {"error": "Category not found"}, 404
+
+    # Only allow users to update their own categories
+    if existing_category.user_id != user_id:
+        return {"error": "You can only update your own categories"}, 403
+
+    # Don't allow updating system categories (user_id is None)
+    if existing_category.user_id is None:
+        return {"error": "Cannot update system categories"}, 403
+
+    existing_category.name = category.name
+    existing_category.type = category.type
+    # user_id stays the same - don't allow changing ownership
+
+    db.commit()
+    db.refresh(existing_category)
+    return {
+        "message": "Category updated successfully",
+        "category": {
+            "id": existing_category.id,
+            "name": existing_category.name,
+            "type": existing_category.type,
+            "user_id": existing_category.user_id
+        }
+    }
+    
+
 @app.get("/test/bills")
 async def get_all_bills(db: Session = Depends(get_db)):
     bills = db.query(Bills).all()
