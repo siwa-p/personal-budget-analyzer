@@ -141,6 +141,26 @@ Once the backend is running, visit:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
+### Authentication
+
+The API now provides JWT-based authentication:
+
+- `POST /api/v1/auth/register` – create a basic user account
+- `POST /api/v1/auth/login` – obtain an access token using email + password
+- `GET /api/v1/users/me` – fetch the profile of the authenticated user
+
+Include the issued token in the `Authorization: Bearer <token>` header to access protected routes such as `/api/v1/users`.
+
+### Bootstrapping a Superuser
+
+The admin-only routes require an initial superuser. After your containers are running, execute:
+
+```bash
+docker-compose run --rm backend python -m app.initial_data
+```
+
+The command reads `FIRST_SUPERUSER_*` variables from `backend/.env` (see `backend/.env.example`) and creates the account if it does not already exist.
+
 ## Environment Variables
 
 ### Backend (.env)

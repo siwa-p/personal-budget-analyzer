@@ -2,6 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+
+from app.api.v1.api import api_router
 from app.core.config import settings
 from app.db.session import engine, get_db
 from app.db.base import Base, Users, Categories, Transactions, Bills
@@ -10,6 +12,9 @@ from datetime import date
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
+from app.db.base import Base
+from app.db.session import engine
+
 # Create database tables
 Base.metadata.create_all(bind=engine)
 logger.info("Database tables created.")
@@ -405,3 +410,5 @@ def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
         db.rollback()
         logger.error(f"Unexpected error while deleting transaction {transaction_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+app.include_router(api_router, prefix=settings.API_V1_STR)

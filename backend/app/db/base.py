@@ -82,3 +82,9 @@ class GoalTransactions(Base):
 
     def __repr__(self) -> str:
         return f"<GoalTransaction(id={self.id}, goal_id={self.goal_id}, transaction_id={self.transaction_id})>"
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+# Import models here so SQLAlchemy registers them with the metadata
+from app import models  # noqa: F401,E402
