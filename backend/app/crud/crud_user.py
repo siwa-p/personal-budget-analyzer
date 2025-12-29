@@ -52,6 +52,12 @@ class CRUDUser:
         db.refresh(db_obj)
         return db_obj
 
+    def remove(self, db: Session, *, id: int) -> User:
+        obj = db.get(User, id)
+        db.delete(obj)
+        db.commit()
+        return obj
+
     def authenticate(self, db: Session, *, email: str, password: str) -> Optional[User]:
         user = self.get_by_email(db, email=email)
         if not user:
