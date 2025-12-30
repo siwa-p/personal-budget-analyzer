@@ -141,6 +141,45 @@ Once the backend is running, visit:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
+### User Authentication
+
+The backend exposes a simple JWT-based login flow that the frontend (or external clients) can call:
+
+1. **Create the initial superuser** – required to access admin-only endpoints. After the stack is running execute:
+   ```bash
+   docker-compose run --rm backend python -m app.initial_data
+   ```
+   This command reads the `FIRST_SUPERUSER_*` variables from `backend/.env` (see `backend/.env.example`) and creates the account if it does not already exist.
+
+2. **Register a regular user** – submit `POST /api/v1/auth/register` with the JSON payload:
+   ```json
+   {
+     "username": "luis",
+     "email": "luis@example.com",
+     "full_name": "Luis Estigarribia",
+     "password": "strong-password"
+   }
+   ```
+   The endpoint enforces unique `email`/`username` combinations and will always store new accounts as active, non‑superusers.
+
+3. **Obtain a token** – call `POST /api/v1/auth/login` with form-data (`application/x-www-form-urlencoded`). Example `curl`:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/auth/login \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "username=luis@example.com&password=strong-password"
+   ```
+   The response contains:
+   ```json
+   {
+     "access_token": "<JWT>",
+     "token_type": "bearer"
+   }
+   ```
+
+4. **Use the token** – include `Authorization: Bearer <JWT>` in subsequent requests. Useful endpoints:
+   - `GET /api/v1/users/me` – returns the profile tied to the current token.
+   - `GET /api/v1/users` and `POST /api/v1/users` – admin-only operations that require the superuser token.
+
 ## Environment Variables
 
 ### Backend (.env)
