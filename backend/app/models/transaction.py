@@ -15,6 +15,7 @@ class Transactions(Base):
     description: Mapped[str | None] = mapped_column(String, nullable=True)
     transaction_date: Mapped[Date] = mapped_column(Date, nullable=False)
     bill_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("bills.id"), nullable=True)
+    goal_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("goals.id"), nullable=True)
     transaction_type: Mapped[str] = mapped_column(String, nullable=False)  # 'income' or 'expense'
     account_name: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

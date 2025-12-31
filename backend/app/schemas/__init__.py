@@ -1,7 +1,6 @@
 from app.schemas.bill import BillCreate, BillRead, BillUpdate
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
-from app.schemas.goal import GoalCreate, GoalRead, GoalUpdate
-from app.schemas.goal_transaction import GoalTransactionCreate, GoalTransactionRead
+from app.schemas.goal import GoalCreate, GoalRead, GoalUpdate, GoalWithProgress
 from app.schemas.transaction import TransactionCreate, TransactionRead, TransactionUpdate
 from app.schemas.user import Token, TokenPayload, UserCreate, UserRead, UserUpdate
 
@@ -18,9 +17,7 @@ __all__ = [
     "GoalCreate",
     "GoalRead",
     "GoalUpdate",
-    # GoalTransaction schemas
-    "GoalTransactionCreate",
-    "GoalTransactionRead",
+    "GoalWithProgress",
     # Transaction schemas
     "TransactionCreate",
     "TransactionRead",

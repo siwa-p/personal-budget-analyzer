@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
 from app.api import deps
+from app.core.logger_init import setup_logging
 
+logger = setup_logging()
 router = APIRouter()
 
 
@@ -17,7 +19,7 @@ def read_categories(
     limit: int = 100,
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> List[schemas.CategoryRead]:
-    """Get all categories (system + user's own categories)"""
+    logger.info(f"User {current_user.id} is retrieving categories")
     categories = crud.category.get_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
     return [schemas.CategoryRead.model_validate(cat) for cat in categories]
 
@@ -30,7 +32,7 @@ def read_system_categories(
     limit: int = 100,
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> List[schemas.CategoryRead]:
-    """Get only system categories"""
+    logger.info(f"User {current_user.id} is retrieving system categories")
     categories = crud.category.get_system_categories(db, skip=skip, limit=limit)
     return [schemas.CategoryRead.model_validate(cat) for cat in categories]
 
@@ -42,18 +44,23 @@ def create_category(
     category_in: schemas.CategoryCreate,
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.CategoryRead:
-    """Create a new category for the current user"""
-    # Check if category with same name and type already exists for this user
+    logger.info(f"User {current_user.id} is creating a new category - name: {category_in.name}, type: {category_in.type}")
+
     existing_category = crud.category.get_by_name_and_user(
         db, name=category_in.name, type=category_in.type, user_id=current_user.id
     )
     if existing_category:
+        logger.warning(
+            f"User {current_user.id} attempted to create duplicate category - "
+            f"name: {category_in.name}, type: {category_in.type}"
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Category '{category_in.name}' of type '{category_in.type}' already exists"
+            detail=f"Category '{category_in.name}' of type '{category_in.type}' already exists",
         )
 
     category = crud.category.create(db, obj_in=category_in, user_id=current_user.id)
+    logger.info(f"User {current_user.id} successfully created category {category.id}")
     return schemas.CategoryRead.model_validate(category)
 
 
@@ -64,13 +71,13 @@ def read_category(
     category_id: int,
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.CategoryRead:
-    """Get category by ID"""
     category = crud.category.get(db, id=category_id)
     if not category:
+        logger.warning(f"User {current_user.id} attempted to access non-existent category {category_id}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
-    # Check if user has access (own category or system category)
     if category.user_id and category.user_id != current_user.id:
+        logger.warning(f"User {current_user.id} attempted unauthorized access to category {category_id}")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this category")
 
     return schemas.CategoryRead.model_validate(category)
@@ -84,20 +91,23 @@ def update_category(
     category_in: schemas.CategoryUpdate,
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.CategoryRead:
-    """Update a category (only user's own categories)"""
+    logger.info(f"User {current_user.id} is updating category {category_id}")
+
     category = crud.category.get(db, id=category_id)
     if not category:
+        logger.warning(f"User {current_user.id} attempted to update non-existent category {category_id}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
-    # Don't allow updating system categories
     if category.user_id is None:
+        logger.warning(f"User {current_user.id} attempted to update system category {category_id}")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot update system categories")
 
-    # Only allow updating own categories
     if category.user_id != current_user.id:
+        logger.warning(f"User {current_user.id} attempted unauthorized update of category {category_id}")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this category")
 
     category = crud.category.update(db, db_obj=category, obj_in=category_in)
+    logger.info(f"User {current_user.id} successfully updated category {category_id}")
     return schemas.CategoryRead.model_validate(category)
 
 
@@ -108,18 +118,21 @@ def delete_category(
     category_id: int,
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.CategoryRead:
-    """Delete a category (only user's own categories)"""
+    logger.info(f"User {current_user.id} is deleting category {category_id}")
+
     category = crud.category.get(db, id=category_id)
     if not category:
+        logger.warning(f"User {current_user.id} attempted to delete non-existent category {category_id}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
-    # Don't allow deleting system categories
     if category.user_id is None:
+        logger.warning(f"User {current_user.id} attempted to delete system category {category_id}")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete system categories")
 
-    # Only allow deleting own categories
     if category.user_id != current_user.id:
+        logger.warning(f"User {current_user.id} attempted unauthorized deletion of category {category_id}")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this category")
 
     category = crud.category.remove(db, id=category_id)
+    logger.info(f"User {current_user.id} successfully deleted category {category_id}")
     return schemas.CategoryRead.model_validate(category)

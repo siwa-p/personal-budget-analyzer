@@ -1,8 +1,10 @@
 from typing import Any, Dict, List, Optional, Union
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.goal import Goal
+from app.models.transaction import Transactions
 from app.schemas.goal import GoalCreate, GoalUpdate
 
 
@@ -56,6 +58,32 @@ class CRUDGoal:
         db.delete(obj)
         db.commit()
         return obj
+
+    def calculate_progress(self, db: Session, *, goal_id: int) -> Dict[str, float]:
+        """Calculate progress for a goal based on linked transactions"""
+        # Sum all transaction amounts linked to this goal
+        result = (
+            db.query(func.sum(Transactions.amount))
+            .filter(Transactions.goal_id == goal_id)
+            .scalar()
+        )
+
+        current_amount = float(result) if result else 0.0
+
+        # Get the goal to calculate percentage
+        goal = self.get(db, id=goal_id)
+        if not goal:
+            return {"current_amount": 0.0, "progress_percentage": 0.0, "remaining_amount": 0.0}
+
+        target_amount = float(goal.target_amount)
+        progress_percentage = (current_amount / target_amount * 100) if target_amount > 0 else 0.0
+        remaining_amount = max(0.0, target_amount - current_amount)
+
+        return {
+            "current_amount": current_amount,
+            "progress_percentage": min(100.0, progress_percentage),  # Cap at 100%
+            "remaining_amount": remaining_amount,
+        }
 
 
 goal = CRUDGoal()

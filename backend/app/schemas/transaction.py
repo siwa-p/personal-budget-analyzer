@@ -15,6 +15,7 @@ class TransactionBase(BaseModel):
 class TransactionCreate(TransactionBase):
     category_id: int
     bill_id: Optional[int] = None
+    goal_id: Optional[int] = None
 
 
 class TransactionUpdate(BaseModel):
@@ -25,6 +26,7 @@ class TransactionUpdate(BaseModel):
     account_name: Optional[str] = None
     category_id: Optional[int] = None
     bill_id: Optional[int] = None
+    goal_id: Optional[int] = None
 
 
 class TransactionRead(TransactionBase):
@@ -32,5 +34,6 @@ class TransactionRead(TransactionBase):
     user_id: int
     category_id: int
     bill_id: Optional[int] = None
+    goal_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)

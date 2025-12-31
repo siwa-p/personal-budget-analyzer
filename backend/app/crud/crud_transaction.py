@@ -83,6 +83,7 @@ class CRUDTransaction:
             transaction_type=obj_in.transaction_type,
             account_name=obj_in.account_name,
             bill_id=obj_in.bill_id,
+            goal_id=obj_in.goal_id,
         )
         db.add(db_obj)
         db.commit()

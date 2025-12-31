@@ -27,3 +27,10 @@ class GoalRead(GoalBase):
     user_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class GoalWithProgress(GoalRead):
+    """Goal with calculated progress information"""
+    current_amount: float = 0.0
+    progress_percentage: float = 0.0
+    remaining_amount: float = 0.0
