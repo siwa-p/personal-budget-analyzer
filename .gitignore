@@ -15,3 +15,5 @@ Thumbs.db
 # Docker volumes
 postgres_data/
 redis_data/
+
+*.venv/
