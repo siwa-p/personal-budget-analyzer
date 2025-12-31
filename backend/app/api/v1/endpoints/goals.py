@@ -37,9 +37,7 @@ def create_goal(
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.GoalRead:
     """Create a new goal"""
-    # Force user_id to current user
-    goal_in.user_id = current_user.id
-    goal = crud.goal.create(db, obj_in=goal_in)
+    goal = crud.goal.create(db, obj_in=goal_in, user_id=current_user.id)
     return schemas.GoalRead.model_validate(goal)
 
 

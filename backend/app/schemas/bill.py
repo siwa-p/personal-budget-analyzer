@@ -13,7 +13,7 @@ class BillBase(BaseModel):
 
 
 class BillCreate(BillBase):
-    user_id: int
+    pass
 
 
 class BillUpdate(BaseModel):

@@ -27,9 +27,9 @@ class CRUDGoal:
             .all()
         )
 
-    def create(self, db: Session, *, obj_in: GoalCreate) -> Goal:
+    def create(self, db: Session, *, obj_in: GoalCreate, user_id: int) -> Goal:
         db_obj = Goal(
-            user_id=obj_in.user_id,
+            user_id=user_id,
             name=obj_in.name,
             target_amount=obj_in.target_amount,
             deadline=obj_in.deadline,

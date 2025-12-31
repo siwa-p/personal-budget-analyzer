@@ -50,9 +50,6 @@ def create_transaction(
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.TransactionRead:
     """Create a new transaction"""
-    # Force user_id to current user
-    transaction_in.user_id = current_user.id
-
     # Verify category exists and user has access to it
     category = crud.category.get(db, id=transaction_in.category_id)
     if not category:
@@ -62,7 +59,7 @@ def create_transaction(
     if category.user_id and category.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to use this category")
 
-    transaction = crud.transaction.create(db, obj_in=transaction_in)
+    transaction = crud.transaction.create(db, obj_in=transaction_in, user_id=current_user.id)
     return schemas.TransactionRead.model_validate(transaction)
 
 

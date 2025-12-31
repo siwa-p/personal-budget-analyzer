@@ -73,9 +73,9 @@ class CRUDTransaction:
             .all()
         )
 
-    def create(self, db: Session, *, obj_in: TransactionCreate) -> Transactions:
+    def create(self, db: Session, *, obj_in: TransactionCreate, user_id: int) -> Transactions:
         db_obj = Transactions(
-            user_id=obj_in.user_id,
+            user_id=user_id,
             category_id=obj_in.category_id,
             amount=obj_in.amount,
             description=obj_in.description,

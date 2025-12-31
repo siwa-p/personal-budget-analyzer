@@ -30,9 +30,17 @@ def create_bill(
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.BillRead:
     """Create a new bill"""
-    # Force user_id to current user
-    bill_in.user_id = current_user.id
-    bill = crud.bill.create(db, obj_in=bill_in)
+    # Check if bill with same title and due date already exists for this user
+    existing_bill = crud.bill.get_by_title_date_and_user(
+        db, title=bill_in.title, due_date=bill_in.due_date, user_id=current_user.id
+    )
+    if existing_bill:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Bill '{bill_in.title}' with due date {bill_in.due_date} already exists"
+        )
+
+    bill = crud.bill.create(db, obj_in=bill_in, user_id=current_user.id)
     return schemas.BillRead.model_validate(bill)
 
 

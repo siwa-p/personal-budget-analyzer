@@ -16,9 +16,13 @@ class CRUDBill:
     def get_by_user(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> List[Bill]:
         return db.query(Bill).filter(Bill.user_id == user_id).offset(skip).limit(limit).all()
 
-    def create(self, db: Session, *, obj_in: BillCreate) -> Bill:
+    def get_by_title_date_and_user(self, db: Session, *, title: str, due_date, user_id: int) -> Optional[Bill]:
+        """Check if a bill with this title and due date already exists for this user"""
+        return db.query(Bill).filter(Bill.title == title, Bill.due_date == due_date, Bill.user_id == user_id).first()
+
+    def create(self, db: Session, *, obj_in: BillCreate, user_id: int) -> Bill:
         db_obj = Bill(
-            user_id=obj_in.user_id,
+            user_id=user_id,
             title=obj_in.title,
             amount=obj_in.amount,
             due_date=obj_in.due_date,

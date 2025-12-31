@@ -9,7 +9,7 @@ class CategoryBase(BaseModel):
 
 
 class CategoryCreate(CategoryBase):
-    user_id: Optional[int] = None  # None for system categories
+    pass
 
 
 class CategoryUpdate(BaseModel):

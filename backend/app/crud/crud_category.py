@@ -27,11 +27,21 @@ class CRUDCategory:
         """Get only system categories (user_id=None)"""
         return db.query(Category).filter(Category.user_id == None).offset(skip).limit(limit).all()
 
-    def create(self, db: Session, *, obj_in: CategoryCreate) -> Category:
+    def get_by_name_and_user(
+        self, db: Session, *, name: str, type: str, user_id: Optional[int]
+    ) -> Optional[Category]:
+        """Check if a category with this name and type already exists for this user"""
+        return (
+            db.query(Category)
+            .filter(Category.name == name, Category.type == type, Category.user_id == user_id)
+            .first()
+        )
+
+    def create(self, db: Session, *, obj_in: CategoryCreate, user_id: Optional[int]) -> Category:
         db_obj = Category(
             name=obj_in.name,
             type=obj_in.type,
-            user_id=obj_in.user_id,
+            user_id=user_id,
         )
         db.add(db_obj)
         db.commit()

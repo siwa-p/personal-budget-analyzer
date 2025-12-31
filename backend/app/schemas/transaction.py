@@ -13,7 +13,6 @@ class TransactionBase(BaseModel):
 
 
 class TransactionCreate(TransactionBase):
-    user_id: int
     category_id: int
     bill_id: Optional[int] = None
 

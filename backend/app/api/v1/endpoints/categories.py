@@ -43,9 +43,17 @@ def create_category(
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.CategoryRead:
     """Create a new category for the current user"""
-    # Force user_id to current user (ignore what client sends)
-    category_in.user_id = current_user.id
-    category = crud.category.create(db, obj_in=category_in)
+    # Check if category with same name and type already exists for this user
+    existing_category = crud.category.get_by_name_and_user(
+        db, name=category_in.name, type=category_in.type, user_id=current_user.id
+    )
+    if existing_category:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Category '{category_in.name}' of type '{category_in.type}' already exists"
+        )
+
+    category = crud.category.create(db, obj_in=category_in, user_id=current_user.id)
     return schemas.CategoryRead.model_validate(category)
 
 
