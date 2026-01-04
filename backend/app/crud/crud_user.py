@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash, verify_password
@@ -9,16 +10,20 @@ from app.schemas.user import UserCreate, UserUpdate
 
 class CRUDUser:
     def get(self, db: Session, id: int) -> Optional[User]:
-        return db.query(User).filter(User.id == id).first()
+        stmt = select(User).where(User.id == id)
+        return db.execute(stmt).scalar_one_or_none()
 
     def get_by_email(self, db: Session, *, email: str) -> Optional[User]:
-        return db.query(User).filter(User.email == email).first()
+        stmt = select(User).where(User.email == email)
+        return db.execute(stmt).scalar_one_or_none()
 
     def get_by_username(self, db: Session, *, username: str) -> Optional[User]:
-        return db.query(User).filter(User.username == username).first()
+        stmt = select(User).where(User.username == username)
+        return db.execute(stmt).scalar_one_or_none()
 
     def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[User]:
-        return db.query(User).offset(skip).limit(limit).all()
+        stmt = select(User).offset(skip).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     def create(self, db: Session, *, obj_in: UserCreate) -> User:
         db_obj = User(
