@@ -13,19 +13,27 @@ class CRUDCategory:
     def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Category]:
         return db.query(Category).offset(skip).limit(limit).all()
 
-    def get_by_user(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> List[Category]:
+    def get_by_user(
+        self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100, include_inactive: bool = False
+    ) -> List[Category]:
         """Get categories for a specific user, including system categories (user_id=None)"""
-        return (
-            db.query(Category)
-            .filter((Category.user_id == user_id) | (Category.user_id == None))
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        query = db.query(Category).filter((Category.user_id == user_id) | (Category.user_id == None))
 
-    def get_system_categories(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Category]:
+        if not include_inactive:
+            query = query.filter(Category.is_active == True)
+
+        return query.offset(skip).limit(limit).all()
+
+    def get_system_categories(
+        self, db: Session, *, skip: int = 0, limit: int = 100, include_inactive: bool = False
+    ) -> List[Category]:
         """Get only system categories (user_id=None)"""
-        return db.query(Category).filter(Category.user_id == None).offset(skip).limit(limit).all()
+        query = db.query(Category).filter(Category.user_id == None)
+
+        if not include_inactive:
+            query = query.filter(Category.is_active == True)
+
+        return query.offset(skip).limit(limit).all()
 
     def get_by_name_and_user(
         self, db: Session, *, name: str, type: str, user_id: Optional[int]
@@ -41,7 +49,12 @@ class CRUDCategory:
         db_obj = Category(
             name=obj_in.name,
             type=obj_in.type,
+            description=obj_in.description,
+            icon=obj_in.icon,
+            color=obj_in.color,
+            parent_category_id=obj_in.parent_category_id,
             user_id=user_id,
+            is_active=True,
         )
         db.add(db_obj)
         db.commit()
@@ -59,7 +72,17 @@ class CRUDCategory:
         db.refresh(db_obj)
         return db_obj
 
+    def soft_delete(self, db: Session, *, id: int) -> Category:
+        """Soft delete by setting is_active to False"""
+        obj = db.get(Category, id)
+        obj.is_active = False
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return obj
+
     def remove(self, db: Session, *, id: int) -> Category:
+        """Hard delete - permanently remove from database"""
         obj = db.get(Category, id)
         db.delete(obj)
         db.commit()
