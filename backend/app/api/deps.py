@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from app import crud, models, schemas
 from app.core.config import settings
 from app.db.session import get_db as get_db_session
-
+from app.core.logger_init import setup_logging
+logger = setup_logging()
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
 
