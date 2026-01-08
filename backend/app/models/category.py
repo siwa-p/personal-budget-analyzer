@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.budget import Budget
 
 
 class Category(Base):
@@ -24,6 +29,7 @@ class Category(Base):
 
     # Relationships
     parent_category: Mapped["Category"] = relationship("Category", remote_side=[id], backref="subcategories")
+    budgets: Mapped[list["Budget"]] = relationship("Budget", back_populates="category")
 
     def __repr__(self) -> str:
         return f"<Category(id={self.id}, name={self.name}, type={self.type}, user_id={self.user_id}, is_active={self.is_active})>"
