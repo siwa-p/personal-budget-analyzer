@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.bill import Bill
@@ -8,17 +9,21 @@ from app.schemas.bill import BillCreate, BillUpdate
 
 class CRUDBill:
     def get(self, db: Session, id: int) -> Optional[Bill]:
-        return db.query(Bill).filter(Bill.id == id).first()
+        stmt = select(Bill).where(Bill.id == id)
+        return db.execute(stmt).scalar_one_or_none()
 
     def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Bill]:
-        return db.query(Bill).offset(skip).limit(limit).all()
+        stmt = select(Bill).offset(skip).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     def get_by_user(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> List[Bill]:
-        return db.query(Bill).filter(Bill.user_id == user_id).offset(skip).limit(limit).all()
+        stmt = select(Bill).where(Bill.user_id == user_id).offset(skip).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     def get_by_title_date_and_user(self, db: Session, *, title: str, due_date, user_id: int) -> Optional[Bill]:
         """Check if a bill with this title and due date already exists for this user"""
-        return db.query(Bill).filter(Bill.title == title, Bill.due_date == due_date, Bill.user_id == user_id).first()
+        stmt = select(Bill).where(Bill.title == title, Bill.due_date == due_date, Bill.user_id == user_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     def create(self, db: Session, *, obj_in: BillCreate, user_id: int) -> Bill:
         db_obj = Bill(

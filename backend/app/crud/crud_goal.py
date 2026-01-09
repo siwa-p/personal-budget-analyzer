@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.goal import Goal
@@ -10,24 +10,27 @@ from app.schemas.goal import GoalCreate, GoalUpdate
 
 class CRUDGoal:
     def get(self, db: Session, id: int) -> Optional[Goal]:
-        return db.query(Goal).filter(Goal.id == id).first()
+        stmt = select(Goal).where(Goal.id == id)
+        return db.execute(stmt).scalar_one_or_none()
 
     def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Goal]:
-        return db.query(Goal).offset(skip).limit(limit).all()
+        stmt = select(Goal).offset(skip).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     def get_by_user(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> List[Goal]:
-        return db.query(Goal).filter(Goal.user_id == user_id).offset(skip).limit(limit).all()
+        stmt = select(Goal).where(Goal.user_id == user_id).offset(skip).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     def get_by_status(
         self, db: Session, *, user_id: int, status: str, skip: int = 0, limit: int = 100
     ) -> List[Goal]:
-        return (
-            db.query(Goal)
-            .filter(Goal.user_id == user_id, Goal.status == status)
+        stmt = (
+            select(Goal)
+            .where(Goal.user_id == user_id, Goal.status == status)
             .offset(skip)
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     def create(self, db: Session, *, obj_in: GoalCreate, user_id: int) -> Goal:
         db_obj = Goal(
@@ -62,11 +65,8 @@ class CRUDGoal:
     def calculate_progress(self, db: Session, *, goal_id: int) -> Dict[str, float]:
         """Calculate progress for a goal based on linked transactions"""
         # Sum all transaction amounts linked to this goal
-        result = (
-            db.query(func.sum(Transactions.amount))
-            .filter(Transactions.goal_id == goal_id)
-            .scalar()
-        )
+        stmt = select(func.sum(Transactions.amount)).where(Transactions.goal_id == goal_id)
+        result = db.execute(stmt).scalar()
 
         current_amount = float(result) if result else 0.0
 

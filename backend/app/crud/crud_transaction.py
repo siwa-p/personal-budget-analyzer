@@ -1,6 +1,7 @@
 from datetime import date
 from typing import Any, Dict, List, Optional, Union
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.transaction import Transactions
@@ -9,34 +10,36 @@ from app.schemas.transaction import TransactionCreate, TransactionUpdate
 
 class CRUDTransaction:
     def get(self, db: Session, id: int) -> Optional[Transactions]:
-        return db.query(Transactions).filter(Transactions.id == id).first()
+        stmt = select(Transactions).where(Transactions.id == id)
+        return db.execute(stmt).scalar_one_or_none()
 
     def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Transactions]:
-        return db.query(Transactions).offset(skip).limit(limit).all()
+        stmt = select(Transactions).offset(skip).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     def get_by_user(
         self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100
     ) -> List[Transactions]:
-        return (
-            db.query(Transactions)
-            .filter(Transactions.user_id == user_id)
+        stmt = (
+            select(Transactions)
+            .where(Transactions.user_id == user_id)
             .order_by(Transactions.transaction_date.desc())
             .offset(skip)
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     def get_by_category(
         self, db: Session, *, user_id: int, category_id: int, skip: int = 0, limit: int = 100
     ) -> List[Transactions]:
-        return (
-            db.query(Transactions)
-            .filter(Transactions.user_id == user_id, Transactions.category_id == category_id)
+        stmt = (
+            select(Transactions)
+            .where(Transactions.user_id == user_id, Transactions.category_id == category_id)
             .order_by(Transactions.transaction_date.desc())
             .offset(skip)
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     def get_by_date_range(
         self,
@@ -48,9 +51,9 @@ class CRUDTransaction:
         skip: int = 0,
         limit: int = 100,
     ) -> List[Transactions]:
-        return (
-            db.query(Transactions)
-            .filter(
+        stmt = (
+            select(Transactions)
+            .where(
                 Transactions.user_id == user_id,
                 Transactions.transaction_date >= start_date,
                 Transactions.transaction_date <= end_date,
@@ -58,20 +61,20 @@ class CRUDTransaction:
             .order_by(Transactions.transaction_date.desc())
             .offset(skip)
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     def get_by_type(
         self, db: Session, *, user_id: int, transaction_type: str, skip: int = 0, limit: int = 100
     ) -> List[Transactions]:
-        return (
-            db.query(Transactions)
-            .filter(Transactions.user_id == user_id, Transactions.transaction_type == transaction_type)
+        stmt = (
+            select(Transactions)
+            .where(Transactions.user_id == user_id, Transactions.transaction_type == transaction_type)
             .order_by(Transactions.transaction_date.desc())
             .offset(skip)
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     def create(self, db: Session, *, obj_in: TransactionCreate, user_id: int) -> Transactions:
         db_obj = Transactions(
