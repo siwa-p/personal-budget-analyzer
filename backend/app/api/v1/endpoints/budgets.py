@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from decimal import Decimal
 
 from app import crud, models, schemas
 from app.api import deps
@@ -51,9 +52,10 @@ def get_monthly_budgets(
             month=month,
             category_id=budget.category_id
         )
+        spent_decimal = Decimal(str(spent))
 
-        remaining = budget.amount - spent
-        percentage_used = (spent / budget.amount * 100) if budget.amount > 0 else 0
+        remaining = budget.amount - spent_decimal
+        percentage_used = (spent_decimal / budget.amount * 100) if budget.amount > 0 else 0
 
         category_name = None
         if budget.category_id:
