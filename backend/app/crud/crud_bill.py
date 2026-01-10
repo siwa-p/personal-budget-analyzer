@@ -56,5 +56,30 @@ class CRUDBill:
         db.commit()
         return obj
 
+    def get_upcoming_bills(self, db: Session, *, user_id: int, days_ahead: int = 7) -> List[Bill]:
+        from datetime import datetime, timedelta
+
+        today = datetime.now().date()
+        end_date = today + timedelta(days=days_ahead)
+
+        stmt = select(Bill).where(
+            Bill.user_id == user_id,
+            Bill.due_date >= today,
+            Bill.due_date <= end_date
+        ).order_by(Bill.due_date)
+
+        return list(db.execute(stmt).scalars().all())
+    
+    def get_overdue_bills(self, db: Session, *, user_id: int) -> List[Bill]:
+        from datetime import datetime
+
+        today = datetime.now().date()
+
+        stmt = select(Bill).where(
+            Bill.user_id == user_id,
+            Bill.due_date < today
+        ).order_by(Bill.due_date)
+
+        return list(db.execute(stmt).scalars().all())
 
 bill = CRUDBill()
