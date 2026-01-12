@@ -3,7 +3,16 @@ from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate, Budge
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
 from app.schemas.goal import GoalCreate, GoalRead, GoalUpdate, GoalWithProgress
 from app.schemas.transaction import TransactionCreate, TransactionRead, TransactionUpdate
-from app.schemas.user import Token, TokenPayload, UserCreate, UserRead, UserUpdate
+from app.schemas.user import (
+    Message,
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    Token,
+    TokenPayload,
+    UserCreate,
+    UserRead,
+    UserUpdate,
+)
 
 __all__ = [
     # Bill schemas
@@ -31,6 +40,9 @@ __all__ = [
     # User schemas
     "Token",
     "TokenPayload",
+    "Message",
+    "PasswordResetRequest",
+    "PasswordResetConfirm",
     "UserCreate",
     "UserRead",
     "UserUpdate",

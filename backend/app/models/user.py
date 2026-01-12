@@ -8,6 +8,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.budget import Budget
+    from app.models.password_reset_token import PasswordResetToken
 
 
 class User(Base):
@@ -27,6 +28,12 @@ class User(Base):
 
     # Relationships
     budgets: Mapped[list["Budget"]] = relationship("Budget", back_populates="user")
+    password_reset_tokens: Mapped[list["PasswordResetToken"]] = relationship(
+        "PasswordResetToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self) -> str:
         return (
