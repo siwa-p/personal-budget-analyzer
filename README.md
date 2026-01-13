@@ -212,7 +212,7 @@ Important for local testing: Resend test mode only allows sending to the email a
      -H "Content-Type: application/json" \
      -d "{\"email\":\"you@your-resend-email.com\"}"
    ```
-   The API always returns a success message, even if the email is not registered.
+   **The API always returns a success message, even if the email is not registered.**
 
 4. **Reset password** using the token from the email:
    ```bash
