@@ -17,6 +17,18 @@ def read_users_me(current_user: models.User = Depends(deps.get_current_active_us
     return schemas.UserRead.model_validate(current_user)
 
 
+@router.put("/me", response_model=schemas.UserRead)
+def update_users_me(
+    *,
+    db: Session = Depends(deps.get_db),
+    user_in: schemas.UserUpdate,
+    current_user: models.User = Depends(deps.get_current_active_user),
+) -> schemas.UserRead:
+    logger.info(f"User {current_user.id} is updating their profile")
+    user = crud.user.update(db, db_obj=current_user, obj_in=user_in)
+    logger.info(f"User {current_user.id} successfully updated their profile")
+    return schemas.UserRead.model_validate(user)
+
 @router.get("/", response_model=List[schemas.UserRead])
 def read_users(
     *,
