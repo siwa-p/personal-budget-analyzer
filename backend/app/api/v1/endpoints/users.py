@@ -25,9 +25,24 @@ def update_users_me(
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.UserRead:
     logger.info(f"User {current_user.id} is updating their profile")
-    user = crud.user.update(db, db_obj=current_user, obj_in=user_in)
+    update_data = user_in.model_dump(exclude_unset=True, exclude={"is_active", "is_superuser"})
+
+    email = update_data.get("email")
+    if email:
+        existing_email = crud.user.get_by_email(db, email=email.lower())
+        if existing_email and existing_email.id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+
+    username = update_data.get("username")
+    if username:
+        existing_username = crud.user.get_by_username(db, username=username)
+        if existing_username and existing_username.id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already taken")
+
+    user = crud.user.update(db, db_obj=current_user, obj_in=update_data)
     logger.info(f"User {current_user.id} successfully updated their profile")
     return schemas.UserRead.model_validate(user)
+
 
 @router.get("/", response_model=List[schemas.UserRead])
 def read_users(
