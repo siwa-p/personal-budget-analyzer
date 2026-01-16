@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import {
   Alert,
@@ -13,6 +13,7 @@ import {
   Typography
 } from '@mui/material'
 import { Controller, useForm } from 'react-hook-form'
+import { ThemeContext } from '../contexts/ThemeContext'
 
 type ProfileFormValues = {
   username: string
@@ -24,7 +25,8 @@ type ProfileFormValues = {
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function Profile() {
-  const [token, setToken] = useState(() => localStorage.getItem('access_token') || '')
+  const { setTheme } = useContext(ThemeContext)
+  const [token] = useState(() => localStorage.getItem('access_token') || '')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -62,6 +64,9 @@ function Profile() {
         full_name: data.full_name ?? '',
         theme: data.theme ?? 'light'
       })
+      if (data.theme === 'dark' || data.theme === 'light') {
+        setTheme(data.theme)
+      }
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : 'Unknown error.')
     } finally {
@@ -103,6 +108,9 @@ function Profile() {
         full_name: data.full_name ?? '',
         theme: data.theme ?? values.theme
       })
+      if (data.theme === 'dark' || data.theme === 'light') {
+        setTheme(data.theme)
+      }
       setSuccess('Profile updated successfully.')
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : 'Unknown error.')

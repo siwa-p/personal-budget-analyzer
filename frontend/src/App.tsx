@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link as RouterLink, Route, Routes, useNavigate } from 'react-router-dom'
-import { AppBar, Box, Button, Container, Toolbar, Typography } from '@mui/material'
+import { AppBar, Box, Button, Container, CssBaseline, Toolbar, Typography } from '@mui/material'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
 import Login from './pages/Login'
 import Profile from './pages/Profile'
+import { ThemeContext } from './contexts/ThemeContext'
 
 function Home() {
   const [isConnected, setIsConnected] = useState(false)
@@ -31,7 +33,7 @@ function Home() {
         Personal Budget Analyzer
       </Typography>
       <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-        Estado de la API
+        This is a personal budget analyzer.
       </Typography>
 
       <Box
@@ -53,44 +55,98 @@ function Home() {
 
 function App() {
   const navigate = useNavigate()
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(
+    () => (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
+  )
   const hasToken = Boolean(localStorage.getItem('access_token'))
 
   const handleLogout = () => {
     localStorage.removeItem('access_token')
+    setThemeMode('light')
+    localStorage.setItem('theme', 'light')
     navigate('/login')
   }
 
-  return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f5f6f8' }}>
-      <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: '1px solid #e0e0e0' }}>
-        <Toolbar sx={{ gap: 2 }}>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Smore Budget
-          </Typography>
-          <Button component={RouterLink} to="/" color="inherit">
-            Inicio
-          </Button>
-          <Button component={RouterLink} to="/profile" color="inherit">
-            Perfil
-          </Button>
-          {hasToken ? (
-            <Button onClick={handleLogout} color="inherit">
-              Salir
-            </Button>
-          ) : (
-            <Button component={RouterLink} to="/login" color="inherit">
-              Login
-            </Button>
-          )}
-        </Toolbar>
-      </AppBar>
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: themeMode,
+          background: {
+            default: themeMode === 'dark' ? '#0b0d12' : '#f5f6f8',
+            paper: themeMode === 'dark' ? '#141821' : '#ffffff'
+          }
+        }
+      }),
+    [themeMode]
+  )
 
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/login" element={<Login />} />
-      </Routes>
-    </Box>
+  const setTheme = (mode: 'light' | 'dark') => {
+    setThemeMode(mode)
+    localStorage.setItem('theme', mode)
+  }
+
+  useEffect(() => {
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      return
+    }
+    const fetchTheme = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+        const response = await fetch(`${apiUrl}/api/v1/users/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (!response.ok) {
+          return
+        }
+        const data = (await response.json()) as { theme?: 'light' | 'dark' }
+        if (data.theme) {
+          setTheme(data.theme)
+        }
+      } catch {
+        // ignore theme sync failures
+      }
+    }
+    fetchTheme()
+  }, [])
+
+  return (
+    <ThemeContext.Provider value={{ theme: themeMode, setTheme }}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
+          <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Toolbar sx={{ gap: 2 }}>
+              <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                Smore Budget
+              </Typography>
+              <Button component={RouterLink} to="/" color="inherit">
+                Home
+              </Button>
+              <Button component={RouterLink} to="/profile" color="inherit">
+                Profile
+              </Button>
+              {hasToken ? (
+                <Button onClick={handleLogout} color="inherit">
+                  Logout
+                </Button>
+              ) : (
+                <Button component={RouterLink} to="/login" color="inherit">
+                  Login
+                </Button>
+              )}
+            </Toolbar>
+          </AppBar>
+
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/login" element={<Login />} />
+          </Routes>
+        </Box>
+      </ThemeProvider>
+    </ThemeContext.Provider>
   )
 }
 
