@@ -1,61 +1,68 @@
-import { useContext, useState } from 'react'
+import { useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import { Alert, Box, Button, Container, TextField, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
-import { ThemeContext } from '../contexts/ThemeContext'
 
-type LoginValues = {
+type RegisterValues = {
+  firstName: string
+  lastName: string
+  username?: string
   email: string
   password: string
 }
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-function Login() {
+const normalizeUsername = (value: string) => {
+  const cleaned = value
+    .toLowerCase()
+    .replace(/[^a-z0-9.]/g, '.')
+    .replace(/\.+/g, '.')
+    .replace(/^\.|\.$/g, '')
+  return cleaned || 'user'
+}
+
+function Register() {
   const navigate = useNavigate()
-  const { setTheme } = useContext(ThemeContext)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const { register, handleSubmit } = useForm<LoginValues>({
-    defaultValues: { email: '', password: '' }
+  const { register, handleSubmit } = useForm<RegisterValues>({
+    defaultValues: { firstName: '', lastName: '', username: '', email: '', password: '' }
   })
 
-  const onSubmit = async (values: LoginValues) => {
+  const onSubmit = async (values: RegisterValues) => {
     setIsLoading(true)
     setError(null)
+    setSuccess(null)
     try {
-      const body = new URLSearchParams()
-      body.set('username', values.email)
-      body.set('password', values.password)
+      const fullName = `${values.firstName} ${values.lastName}`.trim()
+      const emailPrefix = values.email.split('@')[0] || ''
+      const usernameSeed =
+        values.username?.trim() || `${values.firstName}.${values.lastName}`.trim() || emailPrefix
+      const username = normalizeUsername(usernameSeed || emailPrefix)
 
-      const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
+      const response = await fetch(`${apiUrl}/api/v1/auth/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString()
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          email: values.email,
+          full_name: fullName || null,
+          password: values.password
+        })
       })
 
       if (!response.ok) {
         const data = await response.json().catch(() => null)
-        const message = data?.detail || 'Invalid credentials.'
+        const message = data?.detail || 'Failed to register user.'
         throw new Error(message)
       }
 
-      const data = (await response.json()) as { access_token: string; token_type: string }
-      localStorage.setItem('access_token', data.access_token)
-      try {
-        const profileResponse = await fetch(`${apiUrl}/api/v1/users/me`, {
-          headers: { Authorization: `Bearer ${data.access_token}` }
-        })
-        if (profileResponse.ok) {
-          const profile = (await profileResponse.json()) as { theme?: 'light' | 'dark' }
-          if (profile.theme === 'dark' || profile.theme === 'light') {
-            setTheme(profile.theme)
-          }
-        }
-      } catch {
-        // ignore theme sync failures
-      }
-      navigate('/profile')
+      setSuccess('Registration completed. Redirecting to login...')
+      setTimeout(() => {
+        navigate('/login')
+      }, 1200)
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : 'Unknown error.')
     } finally {
@@ -102,12 +109,17 @@ function Login() {
             Personal Budget Analyst
           </Typography>
           <Typography sx={{ mb: 4, opacity: 0.9 }}>
-            Sign In
+            Register a new account
           </Typography>
 
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
+            </Alert>
+          )}
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {success}
             </Alert>
           )}
 
@@ -121,6 +133,42 @@ function Login() {
               justifyItems: 'center'
             }}
           >
+            <TextField
+              label="First Name"
+              placeholder="First Name"
+              InputLabelProps={{ shrink: true }}
+              {...register('firstName', { required: true })}
+              sx={{
+                width: 220,
+                backgroundColor: '#e0e0e0',
+                borderRadius: 1,
+                '& .MuiInputBase-input': { color: '#1b1b1b' }
+              }}
+            />
+            <TextField
+              label="Last Name"
+              placeholder="Last Name"
+              InputLabelProps={{ shrink: true }}
+              {...register('lastName', { required: true })}
+              sx={{
+                width: 220,
+                backgroundColor: '#e0e0e0',
+                borderRadius: 1,
+                '& .MuiInputBase-input': { color: '#1b1b1b' }
+              }}
+            />
+            <TextField
+              label="Username (optional)"
+              placeholder="Username"
+              InputLabelProps={{ shrink: true }}
+              {...register('username')}
+              sx={{
+                width: 220,
+                backgroundColor: '#e0e0e0',
+                borderRadius: 1,
+                '& .MuiInputBase-input': { color: '#1b1b1b' }
+              }}
+            />
             <TextField
               label="Email"
               type="email"
@@ -139,7 +187,7 @@ function Login() {
               type="password"
               placeholder="Password"
               InputLabelProps={{ shrink: true }}
-              {...register('password', { required: true })}
+              {...register('password', { required: true, minLength: 8 })}
               sx={{
                 width: 220,
                 backgroundColor: '#e0e0e0',
@@ -159,19 +207,19 @@ function Login() {
                 '&:hover': { backgroundColor: '#5a5a5a' }
               }}
             >
-              Sign In
+              Register
             </Button>
           </Box>
 
           <Typography sx={{ mt: 3, fontStyle: 'italic' }}>
-            Not a User?{' '}
+            Already have an account?{' '}
             <Button
               component={RouterLink}
-              to="/register"
+              to="/login"
               size="small"
               sx={{ ml: 1, textDecoration: 'underline', color: 'white' }}
             >
-              Register Here!
+              Sign In
             </Button>
           </Typography>
         </Box>
@@ -180,4 +228,4 @@ function Login() {
   )
 }
 
-export default Login
+export default Register

@@ -4,6 +4,7 @@ import { AppBar, Box, Button, Container, CssBaseline, Toolbar, Typography } from
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import Login from './pages/Login'
 import Profile from './pages/Profile'
+import Register from './pages/Register'
 import { ThemeContext } from './contexts/ThemeContext'
 
 function Home() {
@@ -28,28 +29,107 @@ function Home() {
   }, [])
 
   return (
-    <Container sx={{ py: 6 }}>
-      <Typography variant="h4" sx={{ fontWeight: 600 }}>
-        Personal Budget Analyzer
-      </Typography>
-      <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-        This is a personal budget analyzer.
-      </Typography>
+    <Box
+      sx={{
+        background: 'linear-gradient(180deg, #449454 0%, #3a7b46 45%, #2f5f37 100%)',
+        color: 'white'
+      }}
+    >
+      <Container maxWidth="md" sx={{ py: 6, textAlign: 'center' }}>
+        <Typography
+          variant="h3"
+          sx={{
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            fontFamily: '"Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande", Arial, sans-serif'
+          }}
+        >
+          Personal Budget Analyst
+        </Typography>
+        <Typography
+          sx={{
+            mt: 1,
+            fontStyle: 'italic',
+            fontSize: '1.1rem',
+            color: 'rgba(255,255,255,0.85)'
+          }}
+        >
+          One Small Step for Your Finances
+          <br />
+          One Giant Leap for your Freedom
+        </Typography>
 
-      <Box
-        sx={{
-          mt: 2,
-          p: 2,
-          backgroundColor: isConnected ? '#4caf50' : '#f44336',
-          color: 'white',
-          borderRadius: 1,
-          display: 'inline-block',
-          fontWeight: 'bold'
-        }}
-      >
-        {isConnected ? 'connected' : 'disconnected'}
+        <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Button
+            component={RouterLink}
+            to="/login"
+            variant="contained"
+            sx={{
+              px: 4,
+              borderRadius: 999,
+              backgroundColor: '#6d6d6d',
+              '&:hover': { backgroundColor: '#5a5a5a' }
+            }}
+          >
+            Sign In
+          </Button>
+          <Button
+            component={RouterLink}
+            to="/register"
+            variant="contained"
+            sx={{
+              px: 4,
+              borderRadius: 999,
+              backgroundColor: '#6d6d6d',
+              '&:hover': { backgroundColor: '#5a5a5a' }
+            }}
+          >
+            Register Account
+          </Button>
+        </Box>
+      </Container>
+
+      <Box sx={{ backgroundColor: 'rgba(0,0,0,0.15)', py: 1.5 }}>
+        <Container maxWidth="lg">
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              fontSize: '0.85rem'
+            }}
+          >
+            <Box component="span">Transaction Overviews</Box>
+            <Box component="span">Spending Trends</Box>
+            <Box component="span">Bill Payment Tracking</Box>
+            <Box component="span">Goal Progression Measurements</Box>
+          </Box>
+        </Container>
       </Box>
-    </Container>
+
+      <Box sx={{ backgroundColor: '#2c5a33' }}>
+        <Container sx={{ py: 4, textAlign: 'center' }}>
+          <Typography sx={{ fontSize: '1.2rem', letterSpacing: 1 }}>
+            Check Out Our Features!
+          </Typography>
+          <Box
+            sx={{
+              mt: 2,
+              px: 2,
+              py: 0.5,
+              backgroundColor: isConnected ? '#2ecc71' : '#c0392b',
+              color: 'white',
+              borderRadius: 999,
+              display: 'inline-block',
+              fontSize: '0.8rem'
+            }}
+          >
+            API {isConnected ? 'connected' : 'disconnected'}
+          </Box>
+        </Container>
+      </Box>
+    </Box>
   )
 }
 
@@ -143,6 +223,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
           </Routes>
         </Box>
       </ThemeProvider>
