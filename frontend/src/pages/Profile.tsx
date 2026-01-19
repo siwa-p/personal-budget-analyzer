@@ -155,7 +155,7 @@ function Profile() {
         <TextField
           label="Username"
           placeholder="Ej. admin"
-          InputLabelProps={{ shrink: true }}
+          InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
           {...register('username', { required: true })}
           disabled={isLoading || !token}
         />
@@ -163,20 +163,22 @@ function Profile() {
           label="Email"
           type="email"
           placeholder="example@email.com"
-          InputLabelProps={{ shrink: true }}
+          InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
           {...register('email', { required: true })}
           disabled={isLoading || !token}
         />
         <TextField
           label="Full Name"
           placeholder="Example: Ana Gomez"
-          InputLabelProps={{ shrink: true }}
+          InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
           {...register('full_name')}
           disabled={isLoading || !token}
         />
 
         <FormControl>
-          <InputLabel id="theme-label">Theme</InputLabel>
+          <InputLabel id="theme-label" sx={{ color: 'black', fontWeight: 700 }}>
+            Theme
+          </InputLabel>
           <Controller
             name="theme"
             control={control}

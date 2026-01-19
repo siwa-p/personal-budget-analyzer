@@ -110,7 +110,7 @@ function Home() {
 
       <Box sx={{ backgroundColor: '#2c5a33' }}>
         <Container sx={{ py: 4, textAlign: 'center' }}>
-          <Typography sx={{ fontSize: '1.2rem', letterSpacing: 1 }}>
+          <Typography sx={{ fontSize: '1.8rem', letterSpacing: 1 }}>
             Check Out Our Features!
           </Typography>
           <Box

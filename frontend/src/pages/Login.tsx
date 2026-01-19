@@ -125,7 +125,7 @@ function Login() {
               label="Email"
               type="email"
               placeholder="Email"
-              InputLabelProps={{ shrink: true }}
+              InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
               {...register('email', { required: true })}
               sx={{
                 width: 220,
@@ -138,7 +138,7 @@ function Login() {
               label="Password"
               type="password"
               placeholder="Password"
-              InputLabelProps={{ shrink: true }}
+              InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
               {...register('password', { required: true })}
               sx={{
                 width: 220,
@@ -155,7 +155,7 @@ function Login() {
                 mt: 1,
                 px: 4,
                 borderRadius: 999,
-                backgroundColor: '#6d6d6d',
+                backgroundColor: 'primary.main',
                 '&:hover': { backgroundColor: '#5a5a5a' }
               }}
             >

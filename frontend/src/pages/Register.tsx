@@ -135,11 +135,12 @@ function Register() {
           >
             <TextField
               label="First Name"
-              placeholder="First Name"
-              InputLabelProps={{ shrink: true }}
+              type="text"
+              placeholder="Example: John"
+              InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
               {...register('firstName', { required: true })}
               sx={{
-                width: 220,
+                width: '100%',
                 backgroundColor: '#e0e0e0',
                 borderRadius: 1,
                 '& .MuiInputBase-input': { color: '#1b1b1b' }
@@ -147,11 +148,12 @@ function Register() {
             />
             <TextField
               label="Last Name"
-              placeholder="Last Name"
-              InputLabelProps={{ shrink: true }}
+              type="text"
+              placeholder="Example: Doe"
+              InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
               {...register('lastName', { required: true })}
               sx={{
-                width: 220,
+                width: '100%',
                 backgroundColor: '#e0e0e0',
                 borderRadius: 1,
                 '& .MuiInputBase-input': { color: '#1b1b1b' }
@@ -159,11 +161,12 @@ function Register() {
             />
             <TextField
               label="Username (optional)"
-              placeholder="Username"
-              InputLabelProps={{ shrink: true }}
+              type="text"
+              placeholder="Example: john.doe"
+              InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
               {...register('username')}
               sx={{
-                width: 220,
+                width: '100%',
                 backgroundColor: '#e0e0e0',
                 borderRadius: 1,
                 '& .MuiInputBase-input': { color: '#1b1b1b' }
@@ -172,11 +175,11 @@ function Register() {
             <TextField
               label="Email"
               type="email"
-              placeholder="Email"
-              InputLabelProps={{ shrink: true }}
+              placeholder="Example: example@email.com"
+              InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
               {...register('email', { required: true })}
               sx={{
-                width: 220,
+                width: '100%',
                 backgroundColor: '#e0e0e0',
                 borderRadius: 1,
                 '& .MuiInputBase-input': { color: '#1b1b1b' }
@@ -185,11 +188,11 @@ function Register() {
             <TextField
               label="Password"
               type="password"
-              placeholder="Password"
-              InputLabelProps={{ shrink: true }}
+              placeholder="Enter your password"
+              InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
               {...register('password', { required: true, minLength: 8 })}
               sx={{
-                width: 220,
+                width: '100%',
                 backgroundColor: '#e0e0e0',
                 borderRadius: 1,
                 '& .MuiInputBase-input': { color: '#1b1b1b' }
@@ -203,7 +206,7 @@ function Register() {
                 mt: 1,
                 px: 4,
                 borderRadius: 999,
-                backgroundColor: '#6d6d6d',
+                backgroundColor: 'primary.main',
                 '&:hover': { backgroundColor: '#5a5a5a' }
               }}
             >
