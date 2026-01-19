@@ -229,6 +229,39 @@ See `backend/.env.example` for all available environment variables.
 ### Frontend (.env)
 See `frontend/.env.example` for all available environment variables.
 
+## Testing the Frontend (Register, Login, Profile Update)
+
+Once the application is running (see Quick Start above), test the authentication features:
+
+### 1. Register a New User
+- Navigate to http://localhost:5173/register
+- Fill in the form:
+  - First Name: `John`
+  - Last Name: `Doe`
+  - Email: `john.doe@example.com`
+  - Password: `password123` (min 8 chars)
+- Click **Register**
+- ✅ You should see a success message and be redirected to the update profile page
+
+### 2. Login
+- Navigate to http://localhost:5173/login
+- Enter credentials:
+  - Email: `john.doe@example.com`
+  - Password: `password123`
+- Click **Sign In**
+- ✅ You should be redirected to the update profile page
+
+### 3. Update Profile
+- On the profile page (http://localhost:5173/profile)
+- Modify any field (e.g., Full Name or Theme)
+- Click **Save changes**
+- ✅ Changes should be saved and theme should update immediately
+
+### 4. Test Theme Persistence
+- Change theme to **Dark** and save
+- Logout and login again
+- ✅ Dark theme should be automatically applied
+
 ## Next Steps
 
 This is a basic skeleton setup. To add features:
