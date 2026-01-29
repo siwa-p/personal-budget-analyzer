@@ -28,6 +28,7 @@ ENV/
 # Environment variables
 .env
 .env.local
+!.env.example
 
 # IDE
 .vscode/
@@ -47,3 +48,5 @@ htmlcov/
 
 # Logs
 *.log
+
+*.venv/

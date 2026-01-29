@@ -1,3 +1,8 @@
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
+
+# Import models here so SQLAlchemy registers them with the metadata
+from app import models  # noqa: F401,E402

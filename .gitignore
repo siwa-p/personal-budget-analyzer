@@ -1,6 +1,7 @@
 # Environment files
 .env
 .env.local
+!.env.example
 
 # OS
 .DS_Store
@@ -15,3 +16,5 @@ Thumbs.db
 # Docker volumes
 postgres_data/
 redis_data/
+
+*.venv/

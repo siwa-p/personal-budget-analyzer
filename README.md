@@ -141,6 +141,86 @@ Once the backend is running, visit:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
+### User Authentication
+
+The backend exposes a simple JWT-based login flow that the frontend (or external clients) can call:
+
+1. **Create the initial superuser** – required to access admin-only endpoints. After the stack is running execute:
+   ```bash
+   docker-compose run --rm backend python -m app.initial_data
+   ```
+   This command reads the `FIRST_SUPERUSER_*` variables from `backend/.env` (see `backend/.env.example`) and creates the account if it does not already exist.
+
+2. **Register a regular user** – submit `POST /api/v1/auth/register` with the JSON payload:
+   ```json
+   {
+     "username": "luis",
+     "email": "luis@example.com",
+     "full_name": "Luis Estigarribia",
+     "password": "strong-password"
+   }
+   ```
+   The endpoint enforces unique `email`/`username` combinations and will always store new accounts as active, non‑superusers.
+
+3. **Obtain a token** – call `POST /api/v1/auth/login` with form-data (`application/x-www-form-urlencoded`). Example `curl`:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/auth/login \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "username=luis@example.com&password=strong-password"
+   ```
+   The response contains:
+   ```json
+   {
+     "access_token": "<JWT>",
+     "token_type": "bearer"
+   }
+   ```
+
+4. **Use the token** – include `Authorization: Bearer <JWT>` in subsequent requests. Useful endpoints:
+   - `GET /api/v1/users/me` – returns the profile tied to the current token.
+   - `GET /api/v1/users` and `POST /api/v1/users` – admin-only operations that require the superuser token.
+
+### Password Reset (Resend + Celery)
+
+Forgot password is supported via email verification. The flow uses a password reset token stored in the database and a Celery worker to send emails through Resend SMTP.
+
+Important for local testing: Resend test mode only allows sending to the email address that owns the Resend account. Each teammate must use their own Resend account and API key, and test using their own email address. This is expected for development; production configuration will be handled later.
+
+1. **Configure env vars** in your local `.env` (root of repo):
+   ```bash
+   MAIL_FROM=onboarding@resend.dev
+   MAIL_FROM_NAME=Smore Budget
+   MAIL_USERNAME=resend
+   MAIL_PASSWORD=re_XXXXXXXXXXXX  # This is the Resend API KEY, you need to copy it from your Resend account
+   ```
+   Also set `FRONTEND_URL` and `PASSWORD_RESET_PATH` if your frontend differs from defaults.
+
+2. **Start the stack**, including the Celery worker:
+   ```bash
+   docker compose up --build
+   ```
+
+3. **Request a reset**:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/auth/forgot-password \
+     -H "Content-Type: application/json" \
+     -d "{\"email\":\"your-own-resend-email@example.com\"}"
+   ```
+   Example (must be the email tied to your Resend account):
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/auth/forgot-password \
+     -H "Content-Type: application/json" \
+     -d "{\"email\":\"you@your-resend-email.com\"}"
+   ```
+   **The API always returns a success message, even if the email is not registered.**
+
+4. **Reset password** using the token from the email:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/auth/reset-password \
+     -H "Content-Type: application/json" \
+     -d "{\"token\":\"<token-from-email>\",\"new_password\":\"new-strong-password\"}"
+   ```
+
 ## Environment Variables
 
 ### Backend (.env)
@@ -148,6 +228,39 @@ See `backend/.env.example` for all available environment variables.
 
 ### Frontend (.env)
 See `frontend/.env.example` for all available environment variables.
+
+## Testing the Frontend (Register, Login, Profile Update)
+
+Once the application is running (see Quick Start above), test the authentication features:
+
+### 1. Register a New User
+- Navigate to http://localhost:5173/register
+- Fill in the form:
+  - First Name: `John`
+  - Last Name: `Doe`
+  - Email: `john.doe@example.com`
+  - Password: `password123` (min 8 chars)
+- Click **Register**
+- ✅ You should see a success message and be redirected to the update profile page
+
+### 2. Login
+- Navigate to http://localhost:5173/login
+- Enter credentials:
+  - Email: `john.doe@example.com`
+  - Password: `password123`
+- Click **Sign In**
+- ✅ You should be redirected to the update profile page
+
+### 3. Update Profile
+- On the profile page (http://localhost:5173/profile)
+- Modify any field (e.g., Full Name or Theme)
+- Click **Save changes**
+- ✅ Changes should be saved and theme should update immediately
+
+### 4. Test Theme Persistence
+- Change theme to **Dark** and save
+- Logout and login again
+- ✅ Dark theme should be automatically applied
 
 ## Next Steps
 
@@ -166,3 +279,4 @@ This is a basic skeleton setup. To add features:
 **Database connection errors**: Wait a few seconds for the database to fully initialize on first run.
 
 **Frontend can't connect to backend**: Make sure the `VITE_API_URL` environment variable is set correctly.
+
