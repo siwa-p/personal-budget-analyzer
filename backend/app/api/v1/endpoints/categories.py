@@ -48,17 +48,7 @@ def create_category(
 
     # Validate parent category exists and user has access to it
     if category_in.parent_category_id:
-        parent_category = crud.category.get(db, id=category_in.parent_category_id)
-        if not parent_category:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Parent category not found"
-            )
-        # Check if parent is accessible (system category or user's own category)
-        if parent_category.user_id and parent_category.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to use this parent category"
-            )
+        deps.validate_category_access(db, category_in.parent_category_id, current_user.id)
 
     existing_category = crud.category.get_by_name_and_user(
         db, name=category_in.name, type=category_in.type, user_id=current_user.id
@@ -81,19 +71,8 @@ def create_category(
 @router.get("/{category_id}", response_model=schemas.CategoryRead)
 def read_category(
     *,
-    db: Session = Depends(deps.get_db),
-    category_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    category: models.Category = Depends(deps.get_user_category),
 ) -> schemas.CategoryRead:
-    category = crud.category.get(db, id=category_id)
-    if not category:
-        logger.warning(f"User {current_user.id} attempted to access non-existent category {category_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-
-    if category.user_id and category.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized access to category {category_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this category")
-
     return schemas.CategoryRead.model_validate(category)
 
 
@@ -101,48 +80,23 @@ def read_category(
 def update_category(
     *,
     db: Session = Depends(deps.get_db),
-    category_id: int,
+    category: models.Category = Depends(deps.get_user_owned_category),
     category_in: schemas.CategoryUpdate,
-    current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.CategoryRead:
-    logger.info(f"User {current_user.id} is updating category {category_id}")
-
-    category = crud.category.get(db, id=category_id)
-    if not category:
-        logger.warning(f"User {current_user.id} attempted to update non-existent category {category_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-
-    if category.user_id is None:
-        logger.warning(f"User {current_user.id} attempted to update system category {category_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot update system categories")
-
-    if category.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized update of category {category_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this category")
+    logger.info(f"User {category.user_id} is updating category {category.id}")
 
     # Validate parent category if being updated
     if category_in.parent_category_id is not None:
         # Prevent setting itself as parent
-        if category_in.parent_category_id == category_id:
+        if category_in.parent_category_id == category.id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Category cannot be its own parent"
             )
-
-        parent_category = crud.category.get(db, id=category_in.parent_category_id)
-        if not parent_category:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Parent category not found"
-            )
-        # Check if parent is accessible (system category or user's own category)
-        if parent_category.user_id and parent_category.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to use this parent category"
-            )
+        deps.validate_category_access(db, category_in.parent_category_id, category.user_id)
 
     category = crud.category.update(db, db_obj=category, obj_in=category_in)
-    logger.info(f"User {current_user.id} successfully updated category {category_id}")
+    logger.info(f"User {category.user_id} successfully updated category {category.id}")
     return schemas.CategoryRead.model_validate(category)
 
 
@@ -150,30 +104,16 @@ def update_category(
 def delete_category(
     *,
     db: Session = Depends(deps.get_db),
-    category_id: int,
+    category: models.Category = Depends(deps.get_user_owned_category),
     hard_delete: bool = False,
-    current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.CategoryRead:
-    logger.info(f"User {current_user.id} is deleting category {category_id} (hard_delete={hard_delete})")
-
-    category = crud.category.get(db, id=category_id)
-    if not category:
-        logger.warning(f"User {current_user.id} attempted to delete non-existent category {category_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-
-    if category.user_id is None:
-        logger.warning(f"User {current_user.id} attempted to delete system category {category_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete system categories")
-
-    if category.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized deletion of category {category_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this category")
+    logger.info(f"User {category.user_id} is deleting category {category.id} (hard_delete={hard_delete})")
 
     if hard_delete:
-        category = crud.category.remove(db, id=category_id)
-        logger.info(f"User {current_user.id} successfully hard deleted category {category_id}")
+        deleted_category = crud.category.remove(db, id=category.id)
+        logger.info(f"User {category.user_id} successfully hard deleted category {category.id}")
     else:
-        category = crud.category.soft_delete(db, id=category_id)
-        logger.info(f"User {current_user.id} successfully soft deleted (deactivated) category {category_id}")
+        deleted_category = crud.category.soft_delete(db, id=category.id)
+        logger.info(f"User {category.user_id} successfully soft deleted (deactivated) category {category.id}")
 
-    return schemas.CategoryRead.model_validate(category)
+    return schemas.CategoryRead.model_validate(deleted_category)

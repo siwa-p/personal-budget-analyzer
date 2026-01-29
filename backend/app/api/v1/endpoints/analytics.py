@@ -1,13 +1,16 @@
-from typing import List
-from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
-from sqlalchemy import extract, func, select
 from datetime import datetime
+from typing import List
+
 from dateutil.relativedelta import relativedelta
+from fastapi import APIRouter, Depends, status
+from sqlalchemy import extract, func, select
+from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.api import deps
+from app.core.logger_init import setup_logging
 
+logger = setup_logging()
 router = APIRouter()
 
 

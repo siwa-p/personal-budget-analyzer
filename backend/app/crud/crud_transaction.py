@@ -1,21 +1,17 @@
 from datetime import date
-from typing import Any, Dict, List, Optional, Union
+from typing import List
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.crud.base import CRUDBase
 from app.models.transaction import Transactions
 from app.schemas.transaction import TransactionCreate, TransactionUpdate
 
 
-class CRUDTransaction:
-    def get(self, db: Session, id: int) -> Optional[Transactions]:
-        stmt = select(Transactions).where(Transactions.id == id)
-        return db.execute(stmt).scalar_one_or_none()
-
-    def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Transactions]:
-        stmt = select(Transactions).offset(skip).limit(limit)
-        return list(db.execute(stmt).scalars().all())
+class CRUDTransaction(CRUDBase[Transactions, TransactionCreate, TransactionUpdate]):
+    def __init__(self):
+        super().__init__(Transactions)
 
     def get_by_user(
         self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100
@@ -92,25 +88,6 @@ class CRUDTransaction:
         db.commit()
         db.refresh(db_obj)
         return db_obj
-
-    def update(
-        self, db: Session, *, db_obj: Transactions, obj_in: Union[TransactionUpdate, Dict[str, Any]]
-    ) -> Transactions:
-        update_data = obj_in if isinstance(obj_in, dict) else obj_in.model_dump(exclude_unset=True)
-
-        for field, value in update_data.items():
-            setattr(db_obj, field, value)
-
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
-
-    def remove(self, db: Session, *, id: int) -> Transactions:
-        obj = db.get(Transactions, id)
-        db.delete(obj)
-        db.commit()
-        return obj
 
 
 transaction = CRUDTransaction()

@@ -60,24 +60,12 @@ def create_transaction(
         f"category_id: {transaction_in.category_id}, goal_id: {transaction_in.goal_id}"
     )
 
-    category = crud.category.get(db, id=transaction_in.category_id)
-    if not category:
-        logger.warning(f"User {current_user.id} attempted to use non-existent category {transaction_in.category_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+    # Validate category access
+    deps.validate_category_access(db, transaction_in.category_id, current_user.id)
 
-    if category.user_id and category.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized access to category {transaction_in.category_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to use this category")
-
+    # Validate goal access and check amount limits
     if transaction_in.goal_id:
-        goal = crud.goal.get(db, id=transaction_in.goal_id)
-        if not goal:
-            logger.warning(f"User {current_user.id} attempted to link to non-existent goal {transaction_in.goal_id}")
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Goal not found")
-
-        if goal.user_id != current_user.id:
-            logger.warning(f"User {current_user.id} attempted unauthorized access to goal {transaction_in.goal_id}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to use this goal")
+        goal = deps.validate_goal_access(db, transaction_in.goal_id, current_user.id)
 
         progress = crud.goal.calculate_progress(db, goal_id=transaction_in.goal_id)
         new_total = progress["current_amount"] + transaction_in.amount
@@ -109,19 +97,8 @@ def create_transaction(
 @router.get("/{transaction_id}", response_model=schemas.TransactionRead)
 def read_transaction(
     *,
-    db: Session = Depends(deps.get_db),
-    transaction_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    transaction: models.Transactions = Depends(deps.get_user_transaction),
 ) -> schemas.TransactionRead:
-    transaction = crud.transaction.get(db, id=transaction_id)
-    if not transaction:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
-
-    if transaction.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this transaction"
-        )
-
     return schemas.TransactionRead.model_validate(transaction)
 
 
@@ -129,55 +106,21 @@ def read_transaction(
 def update_transaction(
     *,
     db: Session = Depends(deps.get_db),
-    transaction_id: int,
+    transaction: models.Transactions = Depends(deps.get_user_transaction),
     transaction_in: schemas.TransactionUpdate,
-    current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.TransactionRead:
-    logger.info(f"User {current_user.id} is updating transaction {transaction_id}")
+    logger.info(f"User {transaction.user_id} is updating transaction {transaction.id}")
 
-    transaction = crud.transaction.get(db, id=transaction_id)
-    if not transaction:
-        logger.warning(f"User {current_user.id} attempted to update non-existent transaction {transaction_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
-
-    if transaction.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized update of transaction {transaction_id}")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this transaction"
-        )
-
+    # Validate new category if provided
     if transaction_in.category_id:
-        category = crud.category.get(db, id=transaction_in.category_id)
-        if not category:
-            logger.warning(
-                f"User {current_user.id} attempted to update transaction {transaction_id} "
-                f"with non-existent category {transaction_in.category_id}"
-            )
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+        deps.validate_category_access(db, transaction_in.category_id, transaction.user_id)
 
-        if category.user_id and category.user_id != current_user.id:
-            logger.warning(
-                f"User {current_user.id} attempted unauthorized category access while updating transaction {transaction_id}"
-            )
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to use this category")
-
+    # Validate goal and amount limits
     if transaction_in.goal_id is not None or transaction_in.amount is not None:
         goal_id_to_check = transaction_in.goal_id if transaction_in.goal_id is not None else transaction.goal_id
 
         if goal_id_to_check:
-            goal = crud.goal.get(db, id=goal_id_to_check)
-            if not goal:
-                logger.warning(
-                    f"User {current_user.id} attempted to link transaction {transaction_id} "
-                    f"to non-existent goal {goal_id_to_check}"
-                )
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Goal not found")
-
-            if goal.user_id != current_user.id:
-                logger.warning(
-                    f"User {current_user.id} attempted unauthorized goal access while updating transaction {transaction_id}"
-                )
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to use this goal")
+            goal = deps.validate_goal_access(db, goal_id_to_check, transaction.user_id)
 
             progress = crud.goal.calculate_progress(db, goal_id=goal_id_to_check)
             if transaction.goal_id == goal_id_to_check:
@@ -188,7 +131,7 @@ def update_transaction(
 
             if new_total > goal.target_amount:
                 logger.warning(
-                    f"User {current_user.id} attempted to update transaction {transaction_id} "
+                    f"User {transaction.user_id} attempted to update transaction {transaction.id} "
                     f"which would exceed goal {goal_id_to_check} target - "
                     f"Would be: ${new_total:.2f}, Target: ${goal.target_amount:.2f}"
                 )
@@ -199,12 +142,12 @@ def update_transaction(
                 )
 
             logger.info(
-                f"User {current_user.id} updating transaction {transaction_id} with goal {goal_id_to_check} - "
+                f"User {transaction.user_id} updating transaction {transaction.id} with goal {goal_id_to_check} - "
                 f"New progress will be: ${new_total:.2f}/{goal.target_amount:.2f}"
             )
 
     transaction = crud.transaction.update(db, db_obj=transaction, obj_in=transaction_in)
-    logger.info(f"User {current_user.id} successfully updated transaction {transaction_id}")
+    logger.info(f"User {transaction.user_id} successfully updated transaction {transaction.id}")
     return schemas.TransactionRead.model_validate(transaction)
 
 
@@ -212,28 +155,16 @@ def update_transaction(
 def delete_transaction(
     *,
     db: Session = Depends(deps.get_db),
-    transaction_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    transaction: models.Transactions = Depends(deps.get_user_transaction),
 ) -> schemas.TransactionRead:
-    logger.info(f"User {current_user.id} is deleting transaction {transaction_id}")
-
-    transaction = crud.transaction.get(db, id=transaction_id)
-    if not transaction:
-        logger.warning(f"User {current_user.id} attempted to delete non-existent transaction {transaction_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
-
-    if transaction.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized deletion of transaction {transaction_id}")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this transaction"
-        )
+    logger.info(f"User {transaction.user_id} is deleting transaction {transaction.id}")
 
     if transaction.goal_id:
         logger.info(
-            f"User {current_user.id} deleting transaction {transaction_id} that was linked to goal {transaction.goal_id} - "
+            f"User {transaction.user_id} deleting transaction {transaction.id} that was linked to goal {transaction.goal_id} - "
             f"Goal progress will be reduced by ${transaction.amount:.2f}"
         )
 
-    transaction = crud.transaction.remove(db, id=transaction_id)
-    logger.info(f"User {current_user.id} successfully deleted transaction {transaction_id}")
-    return schemas.TransactionRead.model_validate(transaction)
+    deleted_transaction = crud.transaction.remove(db, id=transaction.id)
+    logger.info(f"User {transaction.user_id} successfully deleted transaction {transaction.id}")
+    return schemas.TransactionRead.model_validate(deleted_transaction)
