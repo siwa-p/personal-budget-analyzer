@@ -180,6 +180,47 @@ The backend exposes a simple JWT-based login flow that the frontend (or external
    - `GET /api/v1/users/me` – returns the profile tied to the current token.
    - `GET /api/v1/users` and `POST /api/v1/users` – admin-only operations that require the superuser token.
 
+### Password Reset (Resend + Celery)
+
+Forgot password is supported via email verification. The flow uses a password reset token stored in the database and a Celery worker to send emails through Resend SMTP.
+
+Important for local testing: Resend test mode only allows sending to the email address that owns the Resend account. Each teammate must use their own Resend account and API key, and test using their own email address. This is expected for development; production configuration will be handled later.
+
+1. **Configure env vars** in your local `.env` (root of repo):
+   ```bash
+   MAIL_FROM=onboarding@resend.dev
+   MAIL_FROM_NAME=Smore Budget
+   MAIL_USERNAME=resend
+   MAIL_PASSWORD=re_XXXXXXXXXXXX  # This is the Resend API KEY, you need to copy it from your Resend account
+   ```
+   Also set `FRONTEND_URL` and `PASSWORD_RESET_PATH` if your frontend differs from defaults.
+
+2. **Start the stack**, including the Celery worker:
+   ```bash
+   docker compose up --build
+   ```
+
+3. **Request a reset**:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/auth/forgot-password \
+     -H "Content-Type: application/json" \
+     -d "{\"email\":\"your-own-resend-email@example.com\"}"
+   ```
+   Example (must be the email tied to your Resend account):
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/auth/forgot-password \
+     -H "Content-Type: application/json" \
+     -d "{\"email\":\"you@your-resend-email.com\"}"
+   ```
+   **The API always returns a success message, even if the email is not registered.**
+
+4. **Reset password** using the token from the email:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/auth/reset-password \
+     -H "Content-Type: application/json" \
+     -d "{\"token\":\"<token-from-email>\",\"new_password\":\"new-strong-password\"}"
+   ```
+
 ## Environment Variables
 
 ### Backend (.env)
