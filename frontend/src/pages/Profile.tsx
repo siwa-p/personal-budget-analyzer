@@ -187,7 +187,6 @@ function Profile() {
               <Select
                 labelId="theme-label"
                 label="Theme"
-                value={field.value}
                 {...field}
                 disabled={isLoading || !token}
               >

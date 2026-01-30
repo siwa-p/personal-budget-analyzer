@@ -163,6 +163,17 @@ function Login() {
             </Button>
           </Box>
 
+          <Typography sx={{ mt: 2, fontSize: '0.9rem' }}>
+            <Button
+              component={RouterLink}
+              to="/forgot-password"
+              size="small"
+              sx={{ textDecoration: 'underline', color: 'white' }}
+            >
+              Forgot Password?
+            </Button>
+          </Typography>
+
           <Typography sx={{ mt: 3, fontStyle: 'italic' }}>
             Not a User?{' '}
             <Button
