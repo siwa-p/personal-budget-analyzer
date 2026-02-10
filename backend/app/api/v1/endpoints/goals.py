@@ -52,19 +52,8 @@ def create_goal(
 @router.get("/{goal_id}", response_model=schemas.GoalRead)
 def read_goal(
     *,
-    db: Session = Depends(deps.get_db),
-    goal_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    goal: models.Goal = Depends(deps.get_user_goal),
 ) -> schemas.GoalRead:
-    goal = crud.goal.get(db, id=goal_id)
-    if not goal:
-        logger.warning(f"User {current_user.id} attempted to access non-existent goal {goal_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Goal not found")
-
-    if goal.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized access to goal {goal_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this goal")
-
     return schemas.GoalRead.model_validate(goal)
 
 
@@ -72,26 +61,16 @@ def read_goal(
 def read_goal_with_progress(
     *,
     db: Session = Depends(deps.get_db),
-    goal_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    goal: models.Goal = Depends(deps.get_user_goal),
 ) -> schemas.GoalWithProgress:
-    logger.info(f"User {current_user.id} is retrieving progress for goal {goal_id}")
+    logger.info(f"User {goal.user_id} is retrieving progress for goal {goal.id}")
 
-    goal = crud.goal.get(db, id=goal_id)
-    if not goal:
-        logger.warning(f"User {current_user.id} attempted to access non-existent goal {goal_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Goal not found")
-
-    if goal.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized access to goal {goal_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this goal")
-
-    progress = crud.goal.calculate_progress(db, goal_id=goal_id)
+    progress = crud.goal.calculate_progress(db, goal_id=goal.id)
     goal_dict = schemas.GoalRead.model_validate(goal).model_dump()
     goal_dict.update(progress)
 
     logger.info(
-        f"User {current_user.id} goal {goal_id} progress: "
+        f"User {goal.user_id} goal {goal.id} progress: "
         f"${progress['current_amount']:.2f}/${goal.target_amount:.2f} ({progress['progress_percentage']:.1f}%)"
     )
 
@@ -102,23 +81,12 @@ def read_goal_with_progress(
 def update_goal(
     *,
     db: Session = Depends(deps.get_db),
-    goal_id: int,
+    goal: models.Goal = Depends(deps.get_user_goal),
     goal_in: schemas.GoalUpdate,
-    current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.GoalRead:
-    logger.info(f"User {current_user.id} is updating goal {goal_id}")
-
-    goal = crud.goal.get(db, id=goal_id)
-    if not goal:
-        logger.warning(f"User {current_user.id} attempted to update non-existent goal {goal_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Goal not found")
-
-    if goal.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized update of goal {goal_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this goal")
-
+    logger.info(f"User {goal.user_id} is updating goal {goal.id}")
     goal = crud.goal.update(db, db_obj=goal, obj_in=goal_in)
-    logger.info(f"User {current_user.id} successfully updated goal {goal_id}")
+    logger.info(f"User {goal.user_id} successfully updated goal {goal.id}")
     return schemas.GoalRead.model_validate(goal)
 
 
@@ -126,20 +94,9 @@ def update_goal(
 def delete_goal(
     *,
     db: Session = Depends(deps.get_db),
-    goal_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    goal: models.Goal = Depends(deps.get_user_goal),
 ) -> schemas.GoalRead:
-    logger.info(f"User {current_user.id} is deleting goal {goal_id}")
-
-    goal = crud.goal.get(db, id=goal_id)
-    if not goal:
-        logger.warning(f"User {current_user.id} attempted to delete non-existent goal {goal_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Goal not found")
-
-    if goal.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized deletion of goal {goal_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this goal")
-
-    goal = crud.goal.remove(db, id=goal_id)
-    logger.info(f"User {current_user.id} successfully deleted goal {goal_id}")
-    return schemas.GoalRead.model_validate(goal)
+    logger.info(f"User {goal.user_id} is deleting goal {goal.id}")
+    deleted_goal = crud.goal.remove(db, id=goal.id)
+    logger.info(f"User {goal.user_id} successfully deleted goal {goal.id}")
+    return schemas.GoalRead.model_validate(deleted_goal)

@@ -1,20 +1,16 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.crud.base import CRUDBase
 from app.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryUpdate
 
 
-class CRUDCategory:
-    def get(self, db: Session, id: int) -> Optional[Category]:
-        stmt = select(Category).where(Category.id == id)
-        return db.execute(stmt).scalar_one_or_none()
-
-    def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Category]:
-        stmt = select(Category).offset(skip).limit(limit)
-        return list(db.execute(stmt).scalars().all())
+class CRUDCategory(CRUDBase[Category, CategoryCreate, CategoryUpdate]):
+    def __init__(self):
+        super().__init__(Category)
 
     def get_by_user(
         self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100, include_inactive: bool = False
@@ -67,17 +63,6 @@ class CRUDCategory:
         db.refresh(db_obj)
         return db_obj
 
-    def update(self, db: Session, *, db_obj: Category, obj_in: Union[CategoryUpdate, Dict[str, Any]]) -> Category:
-        update_data = obj_in if isinstance(obj_in, dict) else obj_in.model_dump(exclude_unset=True)
-
-        for field, value in update_data.items():
-            setattr(db_obj, field, value)
-
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
-
     def soft_delete(self, db: Session, *, id: int) -> Category:
         """Soft delete by setting is_active to False"""
         obj = db.get(Category, id)
@@ -85,13 +70,6 @@ class CRUDCategory:
         db.add(obj)
         db.commit()
         db.refresh(obj)
-        return obj
-
-    def remove(self, db: Session, *, id: int) -> Category:
-        """Hard delete - permanently remove from database"""
-        obj = db.get(Category, id)
-        db.delete(obj)
-        db.commit()
         return obj
 
 
