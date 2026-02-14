@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -13,11 +13,11 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     def __init__(self):
         super().__init__(User)
 
-    def get_by_email(self, db: Session, *, email: str) -> Optional[User]:
+    def get_by_email(self, db: Session, *, email: str) -> User | None:
         stmt = select(User).where(User.email == email)
         return db.execute(stmt).scalar_one_or_none()
 
-    def get_by_username(self, db: Session, *, username: str) -> Optional[User]:
+    def get_by_username(self, db: Session, *, username: str) -> User | None:
         stmt = select(User).where(User.username == username)
         return db.execute(stmt).scalar_one_or_none()
 
@@ -35,7 +35,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def update(self, db: Session, *, db_obj: User, obj_in: Union[UserUpdate, Dict[str, Any]]) -> User:
+    def update(self, db: Session, *, db_obj: User, obj_in: UserUpdate | dict[str, Any]) -> User:
         """Override base update to handle password hashing and email normalization"""
         update_data = obj_in if isinstance(obj_in, dict) else obj_in.model_dump(exclude_unset=True)
         password = update_data.pop("password", None)
@@ -54,7 +54,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def authenticate(self, db: Session, *, email: str, password: str) -> Optional[User]:
+    def authenticate(self, db: Session, *, email: str, password: str) -> User | None:
         user = self.get_by_email(db, email=email)
         if not user:
             return None

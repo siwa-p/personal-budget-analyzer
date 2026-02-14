@@ -1,5 +1,3 @@
-from typing import Dict, List
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -13,13 +11,13 @@ class CRUDGoal(CRUDBase[Goal, GoalCreate, GoalUpdate]):
     def __init__(self):
         super().__init__(Goal)
 
-    def get_by_user(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> List[Goal]:
+    def get_by_user(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> list[Goal]:
         stmt = select(Goal).where(Goal.user_id == user_id).offset(skip).limit(limit)
         return list(db.execute(stmt).scalars().all())
 
     def get_by_status(
         self, db: Session, *, user_id: int, status: str, skip: int = 0, limit: int = 100
-    ) -> List[Goal]:
+    ) -> list[Goal]:
         stmt = (
             select(Goal)
             .where(Goal.user_id == user_id, Goal.status == status)
@@ -41,7 +39,7 @@ class CRUDGoal(CRUDBase[Goal, GoalCreate, GoalUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def calculate_progress(self, db: Session, *, goal_id: int) -> Dict[str, float]:
+    def calculate_progress(self, db: Session, *, goal_id: int) -> dict[str, float]:
         """Calculate progress for a goal based on linked transactions"""
         # Sum all transaction amounts linked to this goal
         stmt = select(func.sum(Transactions.amount)).where(Transactions.goal_id == goal_id)

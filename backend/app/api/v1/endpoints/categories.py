@@ -1,37 +1,36 @@
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
 from app.api import deps
+from app.api.deps import CurrentUser, DbSession
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
 router = APIRouter()
 
 
-@router.get("/", response_model=List[schemas.CategoryRead])
+@router.get("/", response_model=list[schemas.CategoryRead])
 def read_categories(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     skip: int = 0,
     limit: int = 100,
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> List[schemas.CategoryRead]:
+    current_user: CurrentUser,
+) -> list[schemas.CategoryRead]:
     logger.info(f"User {current_user.id} is retrieving categories")
     categories = crud.category.get_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
     return [schemas.CategoryRead.model_validate(cat) for cat in categories]
 
 
-@router.get("/system", response_model=List[schemas.CategoryRead])
+@router.get("/system", response_model=list[schemas.CategoryRead])
 def read_system_categories(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     skip: int = 0,
     limit: int = 100,
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> List[schemas.CategoryRead]:
+    current_user: CurrentUser,
+) -> list[schemas.CategoryRead]:
     logger.info(f"User {current_user.id} is retrieving system categories")
     categories = crud.category.get_system_categories(db, skip=skip, limit=limit)
     return [schemas.CategoryRead.model_validate(cat) for cat in categories]
@@ -40,9 +39,9 @@ def read_system_categories(
 @router.post("/", response_model=schemas.CategoryRead, status_code=status.HTTP_201_CREATED)
 def create_category(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     category_in: schemas.CategoryCreate,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    current_user: CurrentUser,
 ) -> schemas.CategoryRead:
     logger.info(f"User {current_user.id} is creating a new category - name: {category_in.name}, type: {category_in.type}")
 
@@ -79,7 +78,7 @@ def read_category(
 @router.put("/{category_id}", response_model=schemas.CategoryRead)
 def update_category(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     category: models.Category = Depends(deps.get_user_owned_category),
     category_in: schemas.CategoryUpdate,
 ) -> schemas.CategoryRead:
@@ -103,7 +102,7 @@ def update_category(
 @router.delete("/{category_id}", response_model=schemas.CategoryRead)
 def delete_category(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     category: models.Category = Depends(deps.get_user_owned_category),
     hard_delete: bool = False,
 ) -> schemas.CategoryRead:

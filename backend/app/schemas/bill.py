@@ -1,15 +1,14 @@
 from datetime import date
-from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class BillBase(BaseModel):
     title: str
-    amount: Optional[float] = None
+    amount: float | None = None
     due_date: date
     recurrence: str = "none"
-    last_paid_date: Optional[date] = None
+    last_paid_date: date | None = None
 
 
 class BillCreate(BillBase):
@@ -17,11 +16,11 @@ class BillCreate(BillBase):
 
 
 class BillUpdate(BaseModel):
-    title: Optional[str] = None
-    amount: Optional[float] = None
-    due_date: Optional[date] = None
-    recurrence: Optional[str] = None
-    last_paid_date: Optional[date] = None
+    title: str | None = None
+    amount: float | None = None
+    due_date: date | None = None
+    recurrence: str | None = None
+    last_paid_date: date | None = None
 
 
 class BillRead(BillBase):

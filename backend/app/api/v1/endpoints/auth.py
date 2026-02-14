@@ -1,24 +1,24 @@
-from datetime import timedelta
 import hashlib
 import secrets
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
 
 from app import crud, schemas
-from app.api import deps
+from app.api.deps import DbSession
 from app.core import security
 from app.core.config import settings
 from app.core.logger_init import setup_logging
 from app.tasks.email import send_password_reset_email
+
 logger = setup_logging()
 router = APIRouter()
 
 
 @router.post("/login", response_model=schemas.Token)
 def login_access_token(
-    db: Session = Depends(deps.get_db), form_data: OAuth2PasswordRequestForm = Depends()
+    db: DbSession, form_data: OAuth2PasswordRequestForm = Depends()
 ) -> schemas.Token:
     logger.info(f"User {form_data.username} is attempting to log in.")
     user = crud.user.authenticate(db, email=form_data.username, password=form_data.password)
@@ -37,7 +37,7 @@ def login_access_token(
 
 
 @router.post("/register", response_model=schemas.UserRead, status_code=status.HTTP_201_CREATED)
-def register_user(*, db: Session = Depends(deps.get_db), user_in: schemas.UserCreate) -> schemas.UserRead:
+def register_user(*, db: DbSession, user_in: schemas.UserCreate) -> schemas.UserRead:
     logger.info(f"Registering new user with email {user_in.email}.")
     existing_email = crud.user.get_by_email(db, email=user_in.email.lower())
     if existing_email:
@@ -54,7 +54,7 @@ def register_user(*, db: Session = Depends(deps.get_db), user_in: schemas.UserCr
 
 
 @router.post("/forgot-password", response_model=schemas.Message)
-def forgot_password(*, db: Session = Depends(deps.get_db), payload: schemas.PasswordResetRequest) -> schemas.Message:
+def forgot_password(*, db: DbSession, payload: schemas.PasswordResetRequest) -> schemas.Message:
     logger.info(f"Password reset requested for {payload.email}.")
     user = crud.user.get_by_email(db, email=payload.email.lower())
     if user and crud.user.is_active(user):
@@ -78,7 +78,7 @@ def forgot_password(*, db: Session = Depends(deps.get_db), payload: schemas.Pass
 
 
 @router.post("/reset-password", response_model=schemas.Message)
-def reset_password(*, db: Session = Depends(deps.get_db), payload: schemas.PasswordResetConfirm) -> schemas.Message:
+def reset_password(*, db: DbSession, payload: schemas.PasswordResetConfirm) -> schemas.Message:
     token_hash = hashlib.sha256(payload.token.encode("utf-8")).hexdigest()
     db_token = crud.password_reset.get_valid_token(db, token_hash=token_hash)
     if not db_token:

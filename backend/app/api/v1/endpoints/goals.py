@@ -1,25 +1,24 @@
-from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, Query, status
 
 from app import crud, models, schemas
 from app.api import deps
+from app.api.deps import CurrentUser, DbSession
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
 router = APIRouter()
 
 
-@router.get("/", response_model=List[schemas.GoalRead])
+@router.get("/", response_model=list[schemas.GoalRead])
 def read_goals(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     skip: int = 0,
     limit: int = 100,
-    status_filter: Optional[str] = Query(default=None, pattern="^(active|completed|cancelled)$", alias="status"),
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> List[schemas.GoalRead]:
+    status_filter: str | None = Query(default=None, pattern="^(active|completed|cancelled)$", alias="status"),
+    current_user: CurrentUser,
+) -> list[schemas.GoalRead]:
     logger.info(f"User {current_user.id} is retrieving goals with status filter: {status_filter}")
 
     if status_filter:
@@ -35,9 +34,9 @@ def read_goals(
 @router.post("/", response_model=schemas.GoalRead, status_code=status.HTTP_201_CREATED)
 def create_goal(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     goal_in: schemas.GoalCreate,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    current_user: CurrentUser,
 ) -> schemas.GoalRead:
     logger.info(
         f"User {current_user.id} is creating a new goal - "
@@ -60,7 +59,7 @@ def read_goal(
 @router.get("/{goal_id}/progress", response_model=schemas.GoalWithProgress)
 def read_goal_with_progress(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     goal: models.Goal = Depends(deps.get_user_goal),
 ) -> schemas.GoalWithProgress:
     logger.info(f"User {goal.user_id} is retrieving progress for goal {goal.id}")
@@ -80,7 +79,7 @@ def read_goal_with_progress(
 @router.put("/{goal_id}", response_model=schemas.GoalRead)
 def update_goal(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     goal: models.Goal = Depends(deps.get_user_goal),
     goal_in: schemas.GoalUpdate,
 ) -> schemas.GoalRead:
@@ -93,7 +92,7 @@ def update_goal(
 @router.delete("/{goal_id}", response_model=schemas.GoalRead)
 def delete_goal(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     goal: models.Goal = Depends(deps.get_user_goal),
 ) -> schemas.GoalRead:
     logger.info(f"User {goal.user_id} is deleting goal {goal.id}")

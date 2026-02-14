@@ -1,29 +1,28 @@
 from datetime import date
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
 from app.api import deps
+from app.api.deps import CurrentUser, DbSession
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
 router = APIRouter()
 
 
-@router.get("/", response_model=List[schemas.TransactionRead])
+@router.get("/", response_model=list[schemas.TransactionRead])
 def read_transactions(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     skip: int = 0,
     limit: int = 100,
-    category_id: Optional[int] = None,
-    transaction_type: Optional[str] = Query(default=None, pattern="^(income|expense)$"),
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> List[schemas.TransactionRead]:
+    category_id: int | None = None,
+    transaction_type: str | None = Query(default=None, pattern="^(income|expense)$"),
+    start_date: date | None = None,
+    end_date: date | None = None,
+    current_user: CurrentUser,
+) -> list[schemas.TransactionRead]:
     logger.info(
         f"User {current_user.id} is retrieving transactions with filters - "
         f"category_id: {category_id}, transaction_type: {transaction_type}"
@@ -50,9 +49,9 @@ def read_transactions(
 @router.post("/", response_model=schemas.TransactionRead, status_code=status.HTTP_201_CREATED)
 def create_transaction(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     transaction_in: schemas.TransactionCreate,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    current_user: CurrentUser,
 ) -> schemas.TransactionRead:
     logger.info(
         f"User {current_user.id} is creating a new transaction - "
@@ -105,7 +104,7 @@ def read_transaction(
 @router.put("/{transaction_id}", response_model=schemas.TransactionRead)
 def update_transaction(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     transaction: models.Transactions = Depends(deps.get_user_transaction),
     transaction_in: schemas.TransactionUpdate,
 ) -> schemas.TransactionRead:
@@ -154,7 +153,7 @@ def update_transaction(
 @router.delete("/{transaction_id}", response_model=schemas.TransactionRead)
 def delete_transaction(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     transaction: models.Transactions = Depends(deps.get_user_transaction),
 ) -> schemas.TransactionRead:
     logger.info(f"User {transaction.user_id} is deleting transaction {transaction.id}")

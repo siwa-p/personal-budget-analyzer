@@ -1,11 +1,10 @@
 from decimal import Decimal
-from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, status
 
 from app import crud, models, schemas
 from app.api import deps
+from app.api.deps import CurrentUser, DbSession
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
@@ -15,9 +14,9 @@ router = APIRouter()
 @router.post("/", response_model=schemas.BudgetResponse, status_code=status.HTTP_201_CREATED)
 def create_budget(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     budget_in: schemas.BudgetCreate,
-    current_user: models.User = Depends(deps.get_current_active_user)
+    current_user: CurrentUser
 ):
     logger.info(f"User {current_user.id} is creating budget for {budget_in.year}/{budget_in.month}")
 
@@ -30,13 +29,13 @@ def create_budget(
     return budget
 
 
-@router.get("/month", response_model=List[schemas.BudgetWithCategory])
+@router.get("/month", response_model=list[schemas.BudgetWithCategory])
 def get_monthly_budgets(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     year: int,
     month: int,
-    current_user: models.User = Depends(deps.get_current_active_user)
+    current_user: CurrentUser
 ):
     logger.info(f"User {current_user.id} is retrieving budgets for {year}/{month}")
 
@@ -95,7 +94,7 @@ def get_budget(
 @router.put("/{budget_id}", response_model=schemas.BudgetResponse)
 def update_budget(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     budget: models.Budget = Depends(deps.get_user_budget),
     budget_in: schemas.BudgetUpdate,
 ):
@@ -109,7 +108,7 @@ def update_budget(
 @router.delete("/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_budget(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     budget: models.Budget = Depends(deps.get_user_budget),
 ):
     """Delete a budget"""

@@ -1,4 +1,3 @@
-from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,11 +11,11 @@ class CRUDBill(CRUDBase[Bill, BillCreate, BillUpdate]):
     def __init__(self):
         super().__init__(Bill)
 
-    def get_by_user(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> List[Bill]:
+    def get_by_user(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> list[Bill]:
         stmt = select(Bill).where(Bill.user_id == user_id).offset(skip).limit(limit)
         return list(db.execute(stmt).scalars().all())
 
-    def get_by_title_date_and_user(self, db: Session, *, title: str, due_date, user_id: int) -> Optional[Bill]:
+    def get_by_title_date_and_user(self, db: Session, *, title: str, due_date, user_id: int) -> Bill | None:
         """Check if a bill with this title and due date already exists for this user"""
         stmt = select(Bill).where(Bill.title == title, Bill.due_date == due_date, Bill.user_id == user_id)
         return db.execute(stmt).scalar_one_or_none()
@@ -35,7 +34,7 @@ class CRUDBill(CRUDBase[Bill, BillCreate, BillUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def get_upcoming_bills(self, db: Session, *, user_id: int, days_ahead: int = 7) -> List[Bill]:
+    def get_upcoming_bills(self, db: Session, *, user_id: int, days_ahead: int = 7) -> list[Bill]:
         from datetime import datetime, timedelta
 
         today = datetime.now().date()
@@ -48,8 +47,8 @@ class CRUDBill(CRUDBase[Bill, BillCreate, BillUpdate]):
         ).order_by(Bill.due_date)
 
         return list(db.execute(stmt).scalars().all())
-    
-    def get_overdue_bills(self, db: Session, *, user_id: int) -> List[Bill]:
+
+    def get_overdue_bills(self, db: Session, *, user_id: int) -> list[Bill]:
         from datetime import datetime
 
         today = datetime.now().date()
