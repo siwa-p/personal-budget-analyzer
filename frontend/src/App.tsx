@@ -7,6 +7,7 @@ import Profile from './pages/Profile'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import AddTransaction from './pages/AddTransaction'
 import { ThemeContext } from './contexts/ThemeContext'
 
 function Home() {
@@ -209,6 +210,9 @@ function App() {
               <Button component={RouterLink} to="/profile" color="inherit">
                 Profile
               </Button>
+              <Button component={RouterLink} to="/transactions/new" color="inherit">
+                Add Transaction
+              </Button>
               {hasToken ? (
                 <Button onClick={handleLogout} color="inherit">
                   Logout
@@ -228,6 +232,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/transactions/new" element={<AddTransaction />} />
           </Routes>
         </Box>
       </ThemeProvider>
