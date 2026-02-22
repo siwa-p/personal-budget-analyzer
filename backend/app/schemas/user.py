@@ -1,4 +1,3 @@
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -6,8 +5,8 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class UserBase(BaseModel):
     username: str
     email: EmailStr
-    full_name: Optional[str] = None
-    theme: Optional[str] = "light"
+    full_name: str | None = None
+    theme: str | None = "light"
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
@@ -16,13 +15,13 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    username: Optional[str] = None
-    email: Optional[EmailStr] = None
-    full_name: Optional[str] = None
-    password: Optional[str] = Field(default=None, min_length=8)
-    theme: Optional[str] = None
-    is_active: Optional[bool] = None
-    is_superuser: Optional[bool] = None
+    username: str | None = None
+    email: EmailStr | None = None
+    full_name: str | None = None
+    password: str | None = Field(default=None, min_length=8)
+    theme: str | None = None
+    is_active: bool | None = None
+    is_superuser: bool | None = None
 
 
 class UserRead(UserBase):
@@ -39,8 +38,8 @@ class Token(BaseModel):
 
 
 class TokenPayload(BaseModel):
-    sub: Optional[str] = None
-    exp: Optional[int] = None
+    sub: str | None = None
+    exp: int | None = None
 
 
 class Message(BaseModel):

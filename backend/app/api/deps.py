@@ -1,4 +1,4 @@
-from typing import Generator
+from typing import Annotated, TypeAlias
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -8,19 +8,18 @@ from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
 from app.core.config import settings
-from app.db.session import get_db as get_db_session
 from app.core.logger_init import setup_logging
+from app.db.session import get_db
 
 logger = setup_logging()
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
-
-def get_db() -> Generator[Session, None, None]:
-    yield from get_db_session()
+# Annotated type aliases for dependency injection
+DbSession: TypeAlias = Annotated[Session, Depends(get_db)]
 
 
 def get_current_user(
-    db: Session = Depends(get_db), token: str = Depends(reusable_oauth2)
+    db: DbSession, token: str = Depends(reusable_oauth2)
 ) -> models.User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -30,8 +29,8 @@ def get_current_user(
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         token_data = schemas.TokenPayload(**payload)
-    except (JWTError, ValidationError):
-        raise credentials_exception
+    except (JWTError, ValidationError) as err:
+        raise credentials_exception from err
 
     if token_data.sub is None:
         raise credentials_exception
@@ -47,26 +46,31 @@ def get_current_user(
     return user
 
 
-def get_current_active_user(current_user: models.User = Depends(get_current_user)) -> models.User:
+AuthenticatedUser: TypeAlias = Annotated[models.User, Depends(get_current_user)]
+
+
+def get_current_active_user(current_user: AuthenticatedUser) -> models.User:
     if not crud.user.is_active(current_user):
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 
-def get_current_active_superuser(
-    current_user: models.User = Depends(get_current_user),
-) -> models.User:
+def get_current_active_superuser(current_user: AuthenticatedUser) -> models.User:
     if not crud.user.is_superuser(current_user):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     return current_user
+
+
+CurrentUser: TypeAlias = Annotated[models.User, Depends(get_current_active_user)]
+CurrentSuperuser: TypeAlias = Annotated[models.User, Depends(get_current_active_superuser)]
 
 
 # Ownership dependencies for each resource type
 # Usage: bill: models.Bill = Depends(deps.get_user_bill)
 def get_user_bill(
     bill_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
+    db: DbSession,
+    current_user: CurrentUser,
 ) -> models.Bill:
     """Get a bill owned by the current user"""
     bill = crud.bill.get(db, id=bill_id)
@@ -81,8 +85,8 @@ def get_user_bill(
 
 def get_user_goal(
     goal_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
+    db: DbSession,
+    current_user: CurrentUser,
 ) -> models.Goal:
     """Get a goal owned by the current user"""
     goal = crud.goal.get(db, id=goal_id)
@@ -97,8 +101,8 @@ def get_user_goal(
 
 def get_user_transaction(
     transaction_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
+    db: DbSession,
+    current_user: CurrentUser,
 ) -> models.Transactions:
     """Get a transaction owned by the current user"""
     transaction = crud.transaction.get(db, id=transaction_id)
@@ -113,8 +117,8 @@ def get_user_transaction(
 
 def get_user_budget(
     budget_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
+    db: DbSession,
+    current_user: CurrentUser,
 ) -> models.Budget:
     """Get a budget owned by the current user"""
     budget = crud.budget.get(db, id=budget_id)
@@ -129,8 +133,8 @@ def get_user_budget(
 
 def get_user_category(
     category_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
+    db: DbSession,
+    current_user: CurrentUser,
 ) -> models.Category:
     """Get a category accessible by the current user (own or system category)"""
     category = crud.category.get(db, id=category_id)
@@ -180,8 +184,8 @@ def validate_goal_access(db: Session, goal_id: int, user_id: int) -> models.Goal
 
 def get_user_owned_category(
     category_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
+    db: DbSession,
+    current_user: CurrentUser,
 ) -> models.Category:
     """
     Get a category that is owned by the current user (NOT system categories).

@@ -18,3 +18,5 @@ postgres_data/
 redis_data/
 
 *.venv/
+
+ruff.toml

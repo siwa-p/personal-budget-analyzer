@@ -1,5 +1,4 @@
 from datetime import date
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -7,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class GoalBase(BaseModel):
     name: str
     target_amount: float = Field(..., gt=0)
-    deadline: Optional[date] = None
+    deadline: date | None = None
     status: str = Field(default="active", pattern="^(active|completed|cancelled)$")
 
 
@@ -16,10 +15,10 @@ class GoalCreate(GoalBase):
 
 
 class GoalUpdate(BaseModel):
-    name: Optional[str] = None
-    target_amount: Optional[float] = Field(default=None, gt=0)
-    deadline: Optional[date] = None
-    status: Optional[str] = Field(default=None, pattern="^(active|completed|cancelled)$")
+    name: str | None = None
+    target_amount: float | None = Field(default=None, gt=0)
+    deadline: date | None = None
+    status: str | None = Field(default=None, pattern="^(active|completed|cancelled)$")
 
 
 class GoalRead(GoalBase):

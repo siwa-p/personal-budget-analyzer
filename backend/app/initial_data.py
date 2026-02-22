@@ -1,10 +1,11 @@
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
+
+from sqlalchemy.orm import Session
 
 from app import crud, schemas
 from app.core.config import settings
 from app.db.session import SessionLocal
-from sqlalchemy.orm import Session
 
 
 @contextmanager

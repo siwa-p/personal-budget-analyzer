@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+
 from app import crud, schemas
 from app.core.logger_init import setup_logging
 
@@ -165,6 +166,6 @@ def init_db(db: Session) -> None:
             category = crud.category.create(db, obj_in=category_in, user_id=None)
             logger.info(f"Created system category: {cat_data['name']} (ID: {category.id})")
         except Exception as e:
-            logger.error(f"Error creating category '{cat_data['name']}': {str(e)}")
+            logger.error(f"Error creating category '{cat_data['name']}': {e!s}")
 
     logger.info("Database initialization completed!")

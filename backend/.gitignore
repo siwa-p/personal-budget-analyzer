@@ -50,3 +50,4 @@ htmlcov/
 *.log
 
 *.venv/
+test_endpoints.sh

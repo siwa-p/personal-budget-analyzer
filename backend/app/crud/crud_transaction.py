@@ -1,5 +1,4 @@
 from datetime import date
-from typing import List
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,7 +14,7 @@ class CRUDTransaction(CRUDBase[Transactions, TransactionCreate, TransactionUpdat
 
     def get_by_user(
         self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[Transactions]:
+    ) -> list[Transactions]:
         stmt = (
             select(Transactions)
             .where(Transactions.user_id == user_id)
@@ -27,7 +26,7 @@ class CRUDTransaction(CRUDBase[Transactions, TransactionCreate, TransactionUpdat
 
     def get_by_category(
         self, db: Session, *, user_id: int, category_id: int, skip: int = 0, limit: int = 100
-    ) -> List[Transactions]:
+    ) -> list[Transactions]:
         stmt = (
             select(Transactions)
             .where(Transactions.user_id == user_id, Transactions.category_id == category_id)
@@ -46,7 +45,7 @@ class CRUDTransaction(CRUDBase[Transactions, TransactionCreate, TransactionUpdat
         end_date: date,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Transactions]:
+    ) -> list[Transactions]:
         stmt = (
             select(Transactions)
             .where(
@@ -62,7 +61,7 @@ class CRUDTransaction(CRUDBase[Transactions, TransactionCreate, TransactionUpdat
 
     def get_by_type(
         self, db: Session, *, user_id: int, transaction_type: str, skip: int = 0, limit: int = 100
-    ) -> List[Transactions]:
+    ) -> list[Transactions]:
         stmt = (
             select(Transactions)
             .where(Transactions.user_id == user_id, Transactions.transaction_type == transaction_type)

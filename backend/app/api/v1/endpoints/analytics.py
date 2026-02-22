@@ -1,13 +1,11 @@
 from datetime import datetime
-from typing import List
 
-from dateutil.relativedelta import relativedelta
-from fastapi import APIRouter, Depends, status
+import pendulum
+from fastapi import APIRouter, status
 from sqlalchemy import extract, func, select
-from sqlalchemy.orm import Session
 
-from app import models, schemas
-from app.api import deps
+from app import models
+from app.api.deps import CurrentUser, DbSession
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
@@ -17,11 +15,16 @@ router = APIRouter()
 @router.get("/category-distribution", status_code=status.HTTP_200_OK)
 def get_category_distribution(
     *,
-    db: Session = Depends(deps.get_db),
-    start_date: datetime = datetime.now().replace(day=1, month=1),
-    end_date: datetime = datetime.now(),
-    current_user: models.User = Depends(deps.get_current_active_user)
+    db: DbSession,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    current_user: CurrentUser
 ):
+    if start_date is None:
+        start_date = pendulum.now().start_of("year")
+    if end_date is None:
+        end_date = pendulum.now()
+
     stmt = (
         select(
             models.Category.name.label("category_name"),
@@ -54,19 +57,15 @@ def get_category_distribution(
 @router.get("/monthly-spending-trend", status_code=status.HTTP_200_OK)
 def get_monthly_spending_trend(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     start_year: int,
     start_month: int,
     end_year: int,
     end_month: int,
-    current_user: models.User = Depends(deps.get_current_active_user)
+    current_user: CurrentUser
 ):
-    start_date = datetime(start_year, start_month, 1)
-    # Get last day of end month
-    if end_month == 12:
-        end_date = datetime(end_year + 1, 1, 1) - relativedelta(days=1)
-    else:
-        end_date = datetime(end_year, end_month + 1, 1) - relativedelta(days=1)
+    start_date = pendulum.datetime(start_year, start_month, 1)
+    end_date = pendulum.datetime(end_year, end_month, 1).end_of("month")
 
     stmt = (
         select(

@@ -1,24 +1,23 @@
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
 from app.api import deps
+from app.api.deps import CurrentUser, DbSession
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
 router = APIRouter()
 
 
-@router.get("/", response_model=List[schemas.BillRead])
+@router.get("/", response_model=list[schemas.BillRead])
 def read_bills(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     skip: int = 0,
     limit: int = 100,
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> List[schemas.BillRead]:
+    current_user: CurrentUser,
+) -> list[schemas.BillRead]:
     logger.info(f"User {current_user.id} is retrieving bills")
     bills = crud.bill.get_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
     return [schemas.BillRead.model_validate(bill) for bill in bills]
@@ -27,9 +26,9 @@ def read_bills(
 @router.post("/", response_model=schemas.BillRead, status_code=status.HTTP_201_CREATED)
 def create_bill(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     bill_in: schemas.BillCreate,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    current_user: CurrentUser,
 ) -> schemas.BillRead:
     logger.info(
         f"User {current_user.id} is creating a new bill - "
@@ -65,7 +64,7 @@ def read_bill(
 @router.put("/{bill_id}", response_model=schemas.BillRead)
 def update_bill(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     bill: models.Bill = Depends(deps.get_user_bill),
     bill_in: schemas.BillUpdate,
 ) -> schemas.BillRead:
@@ -78,7 +77,7 @@ def update_bill(
 @router.delete("/{bill_id}", response_model=schemas.BillRead)
 def delete_bill(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     bill: models.Bill = Depends(deps.get_user_bill),
 ) -> schemas.BillRead:
     logger.info(f"User {bill.user_id} is deleting bill {bill.id}")
@@ -87,13 +86,13 @@ def delete_bill(
     return schemas.BillRead.model_validate(deleted_bill)
 
 
-@router.get("/upcoming/", response_model=List[schemas.BillRead])
+@router.get("/upcoming/", response_model=list[schemas.BillRead])
 def read_upcoming_bills(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     days_ahead: int = 7,
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> List[schemas.BillRead]:
+    current_user: CurrentUser,
+) -> list[schemas.BillRead]:
     """Retrieve bills due in the next 'days_ahead' days"""
     logger.info(f"User {current_user.id} is retrieving bills due in the next {days_ahead} days")
     bills = crud.bill.get_upcoming_bills(
@@ -102,12 +101,12 @@ def read_upcoming_bills(
     return [schemas.BillRead.model_validate(bill) for bill in bills]
 
 
-@router.get("/overdue/", response_model=List[schemas.BillRead])
+@router.get("/overdue/", response_model=list[schemas.BillRead])
 def read_overdue_bills(
     *,
-    db: Session = Depends(deps.get_db),
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> List[schemas.BillRead]:
+    db: DbSession,
+    current_user: CurrentUser,
+) -> list[schemas.BillRead]:
     """Retrieve bills that are overdue"""
     logger.info(f"User {current_user.id} is retrieving overdue bills")
     bills = crud.bill.get_overdue_bills(
@@ -119,7 +118,7 @@ def read_overdue_bills(
 @router.post("/{bill_id}/mark-paid", response_model=schemas.BillRead)
 def mark_bill_as_paid(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     bill: models.Bill = Depends(deps.get_user_bill),
 ) -> schemas.BillRead:
     """Mark a bill as paid by updating its last_paid_date to today.
@@ -127,6 +126,7 @@ def mark_bill_as_paid(
     logger.info(f"User {bill.user_id} is marking bill {bill.id} as paid")
 
     from datetime import datetime
+
     from dateutil.relativedelta import relativedelta
 
     update_data = {"last_paid_date": datetime.now().date()}
@@ -158,7 +158,7 @@ def mark_bill_as_paid(
 @router.post("/{bill_id}/next-due", response_model=schemas.BillRead)
 def get_next_due_bill(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     bill: models.Bill = Depends(deps.get_user_bill),
 ) -> schemas.BillRead:
     """Get the next due date for a recurring bill"""
