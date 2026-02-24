@@ -14,7 +14,7 @@ class CRUDCategory(CRUDBase[Category, CategoryCreate, CategoryUpdate]):
         self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100, include_inactive: bool = False
     ) -> list[Category]:
         """Get categories for a specific user, including system categories (user_id=None)"""
-        stmt = select(Category).where((Category.user_id == user_id) | (Category.user_id is None))
+        stmt = select(Category).where((Category.user_id == user_id) | (Category.user_id == None))
 
         if not include_inactive:
             stmt = stmt.where(Category.is_active)
@@ -26,7 +26,7 @@ class CRUDCategory(CRUDBase[Category, CategoryCreate, CategoryUpdate]):
         self, db: Session, *, skip: int = 0, limit: int = 100, include_inactive: bool = False
     ) -> list[Category]:
         """Get only system categories (user_id=None)"""
-        stmt = select(Category).where(Category.user_id is None)
+        stmt = select(Category).where(Category.user_id == None)
 
         if not include_inactive:
             stmt = stmt.where(Category.is_active)
