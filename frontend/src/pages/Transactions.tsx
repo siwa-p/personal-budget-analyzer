@@ -1,0 +1,438 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TableSortLabel,
+  TextField,
+  Typography
+} from '@mui/material'
+import { Controller, useForm } from 'react-hook-form'
+
+type Transaction = {
+  id: number
+  amount: number
+  transaction_date: string
+  description: string | null
+  category_id: number
+  transaction_type: 'income' | 'expense'
+  user_id: number
+}
+
+type TransactionFormValues = {
+  amount: number
+  transaction_date: string
+  description: string
+  category_id: number
+}
+
+type Category = {
+  id: number
+  name: string
+  type: 'income' | 'expense'
+  is_active: boolean
+}
+
+type SortKey = 'transaction_date' | 'description' | 'category' | 'transaction_type' | 'amount'
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+function Transactions() {
+  const [token] = useState(() => localStorage.getItem('access_token') || '')
+  const [categories, setCategories] = useState<Category[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false)
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('transaction_date')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
+  const { register, handleSubmit, reset, control, watch } = useForm<TransactionFormValues>({
+    defaultValues: {
+      amount: 0,
+      transaction_date: new Date().toISOString().slice(0, 10),
+      description: '',
+      category_id: 0
+    }
+  })
+
+  const selectedCategoryId = watch('category_id')
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCategoryId),
+    [categories, selectedCategoryId]
+  )
+
+  const loadTransactions = useCallback(async () => {
+    if (!token) return
+    setIsLoadingTransactions(true)
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/transactions/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!response.ok) throw new Error('Failed to load transactions.')
+      const data = (await response.json()) as Transaction[]
+      setTransactions(data)
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : 'Unknown error loading transactions.')
+    } finally {
+      setIsLoadingTransactions(false)
+    }
+  }, [token])
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      if (!token) return
+      setIsLoadingCategories(true)
+      setError(null)
+      try {
+        const [userResponse, systemResponse] = await Promise.all([
+          fetch(`${apiUrl}/api/v1/categories/`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${apiUrl}/api/v1/categories/system`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ])
+
+        if (!userResponse.ok && !systemResponse.ok) {
+          throw new Error('Failed to load categories.')
+        }
+
+        const userCategories = userResponse.ok ? ((await userResponse.json()) as Category[]) : []
+        const systemCategories = systemResponse.ok ? ((await systemResponse.json()) as Category[]) : []
+        const uniqueCategories = Array.from(
+          new Map([...userCategories, ...systemCategories].map((category) => [category.id, category])).values()
+        )
+        setCategories(
+          uniqueCategories
+            .filter((category) => category.is_active)
+            .sort((a, b) => a.name.localeCompare(b.name))
+        )
+      } catch (fetchError) {
+        setError(fetchError instanceof Error ? fetchError.message : 'Unknown error loading categories.')
+      } finally {
+        setIsLoadingCategories(false)
+      }
+    }
+
+    loadCategories()
+    loadTransactions()
+  }, [token, loadTransactions])
+
+  const handleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortOrder('asc')
+    }
+  }
+
+  const visibleTransactions = useMemo(() => {
+    const needle = search.toLowerCase()
+
+    const filtered = needle
+      ? transactions.filter((txn) => {
+          const categoryName = categories.find((c) => c.id === txn.category_id)?.name ?? String(txn.category_id)
+          return (
+            txn.transaction_date.toLowerCase().includes(needle) ||
+            (txn.description ?? '').toLowerCase().includes(needle) ||
+            categoryName.toLowerCase().includes(needle) ||
+            txn.transaction_type.toLowerCase().includes(needle) ||
+            txn.amount.toFixed(2).includes(needle)
+          )
+        })
+      : transactions
+
+    return [...filtered].sort((a, b) => {
+      let aVal: string | number
+      let bVal: string | number
+
+      if (sortKey === 'category') {
+        aVal = categories.find((c) => c.id === a.category_id)?.name ?? ''
+        bVal = categories.find((c) => c.id === b.category_id)?.name ?? ''
+      } else if (sortKey === 'amount') {
+        aVal = a.amount
+        bVal = b.amount
+      } else {
+        aVal = (a[sortKey] ?? '') as string
+        bVal = (b[sortKey] ?? '') as string
+      }
+
+      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [transactions, categories, search, sortKey, sortOrder])
+
+  const onSubmit = async (values: TransactionFormValues) => {
+    if (!token) {
+      setError('You must be logged in to add transactions.')
+      return
+    }
+    const category = categories.find((item) => item.id === values.category_id)
+    if (!category) {
+      setError('Select a valid category.')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/transactions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: values.amount,
+          transaction_date: values.transaction_date,
+          description: values.description || null,
+          category_id: values.category_id,
+          transaction_type: category.type
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        const message = data?.detail || 'Failed to create transaction.'
+        throw new Error(message)
+      }
+
+      await loadTransactions()
+      setDialogOpen(false)
+      setSuccess('Transaction added successfully.')
+      reset({
+        amount: 0,
+        transaction_date: new Date().toISOString().slice(0, 10),
+        description: '',
+        category_id: 0
+      })
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : 'Unknown error.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <Container maxWidth="lg" sx={{ py: 6 }}>
+      <Typography variant="h4" sx={{ fontWeight: 600, mb: 2 }}>
+        Transactions
+      </Typography>
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2 }}>
+        <TextField
+          size="small"
+          placeholder="Search transactions..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ flexGrow: 1 }}
+        />
+        <Button variant="contained" onClick={() => setDialogOpen(true)} disabled={!token}>
+          + Add Transaction
+        </Button>
+      </Box>
+
+      {!token && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          You must be logged in to view transactions.
+          <Button component={RouterLink} to="/login" size="small" sx={{ ml: 2 }} variant="outlined">
+            Go to login
+          </Button>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {success}
+        </Alert>
+      )}
+
+      {isLoadingTransactions ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <TableSortLabel
+                    active={sortKey === 'transaction_date'}
+                    direction={sortKey === 'transaction_date' ? sortOrder : 'asc'}
+                    onClick={() => handleSort('transaction_date')}
+                  >
+                    Date
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <TableSortLabel
+                    active={sortKey === 'description'}
+                    direction={sortKey === 'description' ? sortOrder : 'asc'}
+                    onClick={() => handleSort('description')}
+                  >
+                    Description
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <TableSortLabel
+                    active={sortKey === 'category'}
+                    direction={sortKey === 'category' ? sortOrder : 'asc'}
+                    onClick={() => handleSort('category')}
+                  >
+                    Category
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <TableSortLabel
+                    active={sortKey === 'transaction_type'}
+                    direction={sortKey === 'transaction_type' ? sortOrder : 'asc'}
+                    onClick={() => handleSort('transaction_type')}
+                  >
+                    Type
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <TableSortLabel
+                    active={sortKey === 'amount'}
+                    direction={sortKey === 'amount' ? sortOrder : 'asc'}
+                    onClick={() => handleSort('amount')}
+                  >
+                    Amount
+                  </TableSortLabel>
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {visibleTransactions.map((txn) => (
+                <TableRow key={txn.id}>
+                  <TableCell>{txn.transaction_date}</TableCell>
+                  <TableCell>{txn.description ?? '—'}</TableCell>
+                  <TableCell>
+                    {categories.find((c) => c.id === txn.category_id)?.name ?? txn.category_id}
+                  </TableCell>
+                  <TableCell>{txn.transaction_type}</TableCell>
+                  <TableCell>${txn.amount.toFixed(2)}</TableCell>
+                </TableRow>
+              ))}
+              {visibleTransactions.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    {search ? 'No transactions match your search.' : 'No transactions yet.'}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Add Transaction</DialogTitle>
+        <DialogContent>
+          <Box
+            component="form"
+            id="add-transaction-form"
+            onSubmit={handleSubmit(onSubmit)}
+            sx={{ display: 'grid', gap: 2, pt: 1 }}
+          >
+            <TextField
+              label="Amount"
+              type="number"
+              inputProps={{ step: '0.01', min: 0.01 }}
+              InputLabelProps={{ shrink: true }}
+              {...register('amount', { required: true, valueAsNumber: true, min: 0.01 })}
+              disabled={isSubmitting}
+            />
+
+            <TextField
+              label="Date"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              {...register('transaction_date', { required: true })}
+              disabled={isSubmitting}
+            />
+
+            <TextField
+              label="Description"
+              placeholder="Optional notes"
+              InputLabelProps={{ shrink: true }}
+              {...register('description')}
+              disabled={isSubmitting}
+            />
+
+            <FormControl>
+              <InputLabel id="category-label">Category</InputLabel>
+              <Controller
+                name="category_id"
+                control={control}
+                rules={{ required: true, min: 1 }}
+                render={({ field }) => (
+                  <Select
+                    labelId="category-label"
+                    label="Category"
+                    {...field}
+                    disabled={isSubmitting || isLoadingCategories}
+                  >
+                    <MenuItem value={0}>Select a category</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                )}
+              />
+            </FormControl>
+
+            {selectedCategory && (
+              <Typography variant="body2" color="text.secondary">
+                Transaction type inferred from category: {selectedCategory.type}
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button type="submit" form="add-transaction-form" variant="contained" disabled={isSubmitting || isLoadingCategories}>
+            {isSubmitting ? 'Saving...' : 'Add transaction'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  )
+}
+
+export default Transactions
