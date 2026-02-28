@@ -1,0 +1,185 @@
+import { useEffect, useState } from 'react'
+import {
+  Alert,
+  Box,
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Typography
+} from '@mui/material'
+import { useTheme } from '@mui/material/styles'
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+
+type CategoryPoint = {
+  category: string
+  total: number
+}
+
+type CategoryDistributionResponse = {
+  start_date: string
+  end_date: string
+  category_distribution: CategoryPoint[]
+}
+
+type PieDataPoint = {
+  name: string
+  value: number
+}
+
+type MonthRange = 3 | 6 | 12
+
+type SpendingPieChartProps = {
+  token: string
+}
+
+const COLORS = [
+  '#4e9af1', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6',
+  '#1abc9c', '#e67e22', '#e91e63', '#95a5a6'
+]
+
+const TOP_N = 8
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+function getDateRange(monthRange: MonthRange) {
+  const now = new Date()
+  const endYear = now.getFullYear()
+  const endMonth = now.getMonth() + 1
+
+  const startDate = new Date(now.getFullYear(), now.getMonth() - (monthRange - 1), 1)
+  const startYear = startDate.getFullYear()
+  const startMonth = startDate.getMonth() + 1
+
+  const lastDay = new Date(endYear, endMonth, 0).getDate()
+
+  return {
+    startDateStr: `${startYear}-${String(startMonth).padStart(2, '0')}-01`,
+    endDateStr: `${endYear}-${String(endMonth).padStart(2, '0')}-${lastDay}`
+  }
+}
+
+function buildPieData(points: CategoryPoint[]): PieDataPoint[] {
+  const top = points.slice(0, TOP_N)
+  const rest = points.slice(TOP_N)
+  const data = top.map(p => ({ name: p.category, value: p.total }))
+  if (rest.length > 0) {
+    const otherTotal = rest.reduce((sum, p) => sum + p.total, 0)
+    data.push({ name: 'Other', value: otherTotal })
+  }
+  return data
+}
+
+function SpendingPieChart({ token }: SpendingPieChartProps) {
+  const muiTheme = useTheme()
+  const [monthRange, setMonthRange] = useState<MonthRange>(6)
+  const [chartData, setChartData] = useState<PieDataPoint[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!token) return
+
+    const fetchData = async () => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const { startDateStr, endDateStr } = getDateRange(monthRange)
+
+        const response = await fetch(
+          `${apiUrl}/api/v1/analytics/category-distribution` +
+            `?start_date=${startDateStr}&end_date=${endDateStr}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+
+        if (!response.ok) throw new Error('Failed to load category distribution data.')
+
+        const data = (await response.json()) as CategoryDistributionResponse
+        setChartData(buildPieData(data.category_distribution))
+      } catch (fetchError) {
+        setError(
+          fetchError instanceof Error ? fetchError.message : 'Unknown error loading chart data.'
+        )
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [token, monthRange])
+
+  const tooltipBg = muiTheme.palette.background.paper
+  const tooltipBorder = muiTheme.palette.divider
+
+  return (
+    <Paper sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          Spending by Category
+        </Typography>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel id="pie-range-label">Time Range</InputLabel>
+          <Select
+            labelId="pie-range-label"
+            label="Time Range"
+            value={monthRange}
+            onChange={e => setMonthRange(e.target.value as MonthRange)}
+          >
+            <MenuItem value={3}>Last 3 months</MenuItem>
+            <MenuItem value={6}>Last 6 months</MenuItem>
+            <MenuItem value={12}>Last 12 months</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      ) : chartData.length === 0 ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 320 }}>
+          <Typography color="text.secondary">No spending data for this period.</Typography>
+        </Box>
+      ) : (
+        <ResponsiveContainer width="100%" height={320}>
+          <PieChart>
+            <Pie
+              data={chartData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={110}
+              innerRadius={55}
+            >
+              {chartData.map((_, index) => (
+                <Cell key={index} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]}
+              contentStyle={{
+                backgroundColor: tooltipBg,
+                border: `1px solid ${tooltipBorder}`,
+                borderRadius: 8
+              }}
+              labelStyle={{ color: muiTheme.palette.text.primary }}
+            />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
+    </Paper>
+  )
+}
+
+export default SpendingPieChart
