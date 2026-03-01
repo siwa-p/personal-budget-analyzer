@@ -1,11 +1,12 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 
-from app import crud, models, schemas
+from app import crud, schemas
 from app.api import deps
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, UserTransaction
 from app.core.logger_init import setup_logging
+from app.services.ml_service import predict_category as ml_predict_category
 
 logger = setup_logging()
 router = APIRouter()
@@ -93,10 +94,26 @@ def create_transaction(
     return schemas.TransactionRead.model_validate(transaction)
 
 
+@router.get("/suggest-category")
+def suggest_category(
+    *,
+    db: DbSession,
+    description: str,
+    current_user: CurrentUser,
+) -> dict:
+    """Return the most likely category for a transaction description."""
+    if len(description.strip()) < 3:
+        return {"category_id": None, "category_name": None, "confidence": 0.0, "source": "none"}
+
+    all_cats = crud.category.get_by_user(db, user_id=current_user.id)
+    available = [{"id": c.id, "name": c.name, "type": c.type} for c in all_cats]
+    return ml_predict_category(db, current_user.id, description.strip(), available)
+
+
 @router.get("/{transaction_id}", response_model=schemas.TransactionRead)
 def read_transaction(
     *,
-    transaction: models.Transactions = Depends(deps.get_user_transaction),
+    transaction: UserTransaction,
 ) -> schemas.TransactionRead:
     return schemas.TransactionRead.model_validate(transaction)
 
@@ -105,7 +122,7 @@ def read_transaction(
 def update_transaction(
     *,
     db: DbSession,
-    transaction: models.Transactions = Depends(deps.get_user_transaction),
+    transaction: UserTransaction,
     transaction_in: schemas.TransactionUpdate,
 ) -> schemas.TransactionRead:
     logger.info(f"User {transaction.user_id} is updating transaction {transaction.id}")
@@ -154,7 +171,7 @@ def update_transaction(
 def delete_transaction(
     *,
     db: DbSession,
-    transaction: models.Transactions = Depends(deps.get_user_transaction),
+    transaction: UserTransaction,
 ) -> schemas.TransactionRead:
     logger.info(f"User {transaction.user_id} is deleting transaction {transaction.id}")
 

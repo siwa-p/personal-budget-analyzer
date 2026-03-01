@@ -202,3 +202,12 @@ def get_user_owned_category(
         logger.warning(f"User {current_user.id} attempted unauthorized access to category {category_id}")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this category")
     return category
+
+
+# Annotated type aliases for ownership dependencies
+UserTransaction: TypeAlias = Annotated[models.Transactions, Depends(get_user_transaction)]
+UserBill: TypeAlias = Annotated[models.Bill, Depends(get_user_bill)]
+UserGoal: TypeAlias = Annotated[models.Goal, Depends(get_user_goal)]
+UserBudget: TypeAlias = Annotated[models.Budget, Depends(get_user_budget)]
+UserCategory: TypeAlias = Annotated[models.Category, Depends(get_user_category)]
+UserOwnedCategory: TypeAlias = Annotated[models.Category, Depends(get_user_owned_category)]
