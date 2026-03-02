@@ -1,6 +1,7 @@
 from datetime import date
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 
 from app import crud, schemas
 from app.api import deps
@@ -127,6 +128,41 @@ def submit_category_feedback(
             f"(correction={feedback.is_correction}, source={feedback.source!r})"
         )
     return schemas.CategoryFeedbackRead.model_validate(feedback)
+
+
+@router.post("/scan-receipt", status_code=status.HTTP_200_OK)
+def scan_receipt(
+    *,
+    file: Annotated[UploadFile, File()],
+    db: DbSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Extract transaction fields from a receipt image. Does not save a transaction."""
+    if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(status_code=422, detail="Only JPEG, PNG, or WebP images accepted")
+
+    image_bytes = file.file.read()
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=422, detail="Image too large (max 10 MB)")
+
+    try:
+        from app.services.ocr_service import scan_receipt as ocr_scan
+        extracted = ocr_scan(image_bytes)
+    except Exception as err:
+        logger.exception("Receipt scan failed")
+        raise HTTPException(status_code=500, detail="Receipt scanning failed") from err
+
+    suggestion = None
+    if extracted.get("description"):
+        categories = crud.category.get_by_user(db, user_id=current_user.id)
+        available = [{"id": c.id, "name": c.name} for c in categories]
+        suggestion = ml_predict_category(db, current_user.id, extracted["description"], available)
+
+    return {
+        "amount": extracted["amount"],
+        "description": extracted["description"],
+        "category_suggestion": suggestion,
+    }
 
 
 @router.get("/{transaction_id}", response_model=schemas.TransactionRead)

@@ -76,8 +76,10 @@ function Transactions() {
     source: string
   } | null>(null)
   const [suggestionLoading, setSuggestionLoading] = useState(false)
+  const [scanLoading, setScanLoading] = useState(false)
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSuggestionRef = useRef<typeof suggestion>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, reset, control, watch, setValue, getValues } = useForm<TransactionFormValues>({
     defaultValues: {
@@ -177,6 +179,42 @@ function Transactions() {
         setSuggestionLoading(false)
       }
     }, 500)
+  }
+
+  const handleReceiptScan = async (e: { target: HTMLInputElement }) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    setScanLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/transactions/scan-receipt`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!res.ok) throw new Error('Receipt scan failed.')
+      const data = await res.json() as {
+        amount: number | null
+        description: string | null
+        category_suggestion: { category_id: number; category_name: string; confidence: number; source: string } | null
+      }
+      setDialogOpen(true)
+      if (data.amount != null) setValue('amount', data.amount)
+      if (data.category_suggestion?.category_id) {
+        setValue('category_id', data.category_suggestion.category_id)
+        setSuggestion(data.category_suggestion)
+        lastSuggestionRef.current = data.category_suggestion
+      }
+    } catch (scanError) {
+      setError(scanError instanceof Error ? scanError.message : 'Receipt scan failed.')
+    } finally {
+      setScanLoading(false)
+      e.target.value = ''
+    }
   }
 
   const clearSuggestion = () => {
@@ -319,6 +357,20 @@ function Transactions() {
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flexGrow: 1 }}
         />
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          onChange={handleReceiptScan}
+        />
+        <Button
+          variant="outlined"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={!token || scanLoading}
+        >
+          {scanLoading ? 'Scanning...' : 'Scan Receipt'}
+        </Button>
         <Button variant="contained" onClick={() => setDialogOpen(true)} disabled={!token}>
           + Add Transaction
         </Button>
