@@ -52,7 +52,7 @@ def scan_receipt(image_bytes: bytes) -> dict:
     sequence = re.sub(r"<.*?>", "", sequence, count=1).strip()
 
     cord = processor.token2json(sequence)
-    logger.info("OCR CORD JSON: %s", json.dumps(cord, ensure_ascii=False))
+    # logger.info("OCR CORD JSON: %s", json.dumps(cord, ensure_ascii=False))
     return _parse_cord(cord)
 
 

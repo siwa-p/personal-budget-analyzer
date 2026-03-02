@@ -29,7 +29,7 @@ type PieDataPoint = {
   value: number
 }
 
-type MonthRange = 3 | 6 | 12
+type MonthRange = 'last' | 3 | 6 | 12
 
 type SpendingPieChartProps = {
   token: string
@@ -46,17 +46,22 @@ const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function getDateRange(monthRange: MonthRange) {
   const now = new Date()
+
+  if (monthRange === 'last') {
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const last = new Date(now.getFullYear(), now.getMonth(), 0)
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return { startDateStr: fmt(first), endDateStr: fmt(last) }
+  }
+
   const endYear = now.getFullYear()
   const endMonth = now.getMonth() + 1
-
   const startDate = new Date(now.getFullYear(), now.getMonth() - (monthRange - 1), 1)
-  const startYear = startDate.getFullYear()
-  const startMonth = startDate.getMonth() + 1
-
   const lastDay = new Date(endYear, endMonth, 0).getDate()
 
   return {
-    startDateStr: `${startYear}-${String(startMonth).padStart(2, '0')}-01`,
+    startDateStr: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-01`,
     endDateStr: `${endYear}-${String(endMonth).padStart(2, '0')}-${lastDay}`
   }
 }
@@ -128,6 +133,7 @@ function SpendingPieChart({ token }: SpendingPieChartProps) {
             value={monthRange}
             onChange={e => setMonthRange(e.target.value as MonthRange)}
           >
+            <MenuItem value="last">Last month</MenuItem>
             <MenuItem value={3}>Last 3 months</MenuItem>
             <MenuItem value={6}>Last 6 months</MenuItem>
             <MenuItem value={12}>Last 12 months</MenuItem>
