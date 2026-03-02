@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
@@ -12,6 +12,17 @@ from app.services.ml_service import predict_category as ml_predict_category
 
 logger = setup_logging()
 router = APIRouter()
+
+_DATE_FORMATS = ["%m/%d/%Y", "%Y-%m-%d", "%m/%d/%y", "%d/%m/%Y"]
+
+
+def _parse_date_iso(s: str) -> str | None:
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(s, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
 
 
 @router.get("/", response_model=list[schemas.TransactionRead])
@@ -158,9 +169,13 @@ def scan_receipt(
         available = [{"id": c.id, "name": c.name} for c in categories]
         suggestion = ml_predict_category(db, current_user.id, extracted["description"], available)
 
+    dates = extracted.get("dates", [])
+    date_iso = next((d for s in dates if (d := _parse_date_iso(s))), None)
+
     return {
-        "amount": extracted["amount"],
-        "description": extracted["description"],
+        "amount": extracted.get("amount"),
+        "description": extracted.get("description"),
+        "date": date_iso,
         "category_suggestion": suggestion,
     }
 

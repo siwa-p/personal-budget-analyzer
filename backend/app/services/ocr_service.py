@@ -1,5 +1,4 @@
 import io
-import json
 import re
 
 from PIL import Image
@@ -52,39 +51,46 @@ def scan_receipt(image_bytes: bytes) -> dict:
     sequence = re.sub(r"<.*?>", "", sequence, count=1).strip()
 
     cord = processor.token2json(sequence)
-    # logger.info("OCR CORD JSON: %s", json.dumps(cord, ensure_ascii=False))
+    logger.info("OCR CORD: %s", cord)
     return _parse_cord(cord)
+
+# Matches M/D/YYYY, MM/DD/YYYY, YYYY-MM-DD
+_DATE_RE = re.compile(r"\b(\d{1,4}[-/]\d{1,2}[-/]\d{2,4})\b")
+
+
+def _extract_dates(cord) -> list[str]:
+    dates: list[str] = []
+    for v in (cord.get("total") or {}).values():
+        if isinstance(v, str):
+            dates.extend(_DATE_RE.findall(v))
+    for item in (cord.get("menu") or []):
+        if isinstance(item, dict):
+            for v in item.values():
+                if isinstance(v, str):
+                    dates.extend(_DATE_RE.findall(v))
+    return list(dict.fromkeys(dates))  # deduplicate, preserve order
 
 
 def _parse_cord(cord) -> dict:
-    # token2json can return a list when the sequence has malformed/extra content
-    if isinstance(cord, list):
-        cord = next(
-            (c for c in cord if isinstance(c, dict) and ("menu" in c or "total" in c)),
-            cord[0] if cord else {},
-        )
+    total_node = cord.get("total") or {}
+    sub_total_node = cord.get("sub_total") or {}
+    total = _parse_amount(total_node.get("total_price", ""))
+    subtotal = _parse_amount(sub_total_node.get("subtotal_price", ""))
+    tax = _parse_amount(sub_total_node.get("tax_price", ""))
+    if total is None and subtotal is not None:
+        total = round(subtotal + (tax or 0.0), 2)
+    total_validated: bool | None = None
+    if total is not None and subtotal is not None and tax is not None:
+        total_validated = abs(round(subtotal + tax, 2) - total) <= 0.01
 
-    # Try standard CORD total_price, fall back to top-level price
-    total_node = cord.get("total", {})
-    total_str = total_node.get("total_price", "") if isinstance(total_node, dict) else ""
-    if not total_str:
-        top_price = cord.get("price", "")
-        total_str = top_price if isinstance(top_price, str) else ""
-    amount = _parse_amount(total_str)
-
-    items = cord.get("menu", [])
-    if not isinstance(items, list):
-        items = []
-    # nm can be str, dict, or list depending on parse quality — keep only clean strings
-    names = [
-        i["nm"] for i in items
-        if isinstance(i, dict) and isinstance(i.get("nm"), str) and i["nm"].strip()
-    ]
-    description = ", ".join(names) or None
+    dates = _extract_dates(cord)
 
     return {
-        "amount": amount,
-        "description": description,
+        "amount": total,
+        "tax": tax,
+        "subtotal": subtotal,
+        "total_validated": total_validated,
+        "dates": dates,
         "raw_cord": cord,
     }
 
@@ -95,3 +101,4 @@ def _parse_amount(s: str) -> float | None:
         return float(cleaned) if cleaned else None
     except ValueError:
         return None
+

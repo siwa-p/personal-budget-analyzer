@@ -200,10 +200,12 @@ function Transactions() {
       const data = await res.json() as {
         amount: number | null
         description: string | null
+        date: string | null
         category_suggestion: { category_id: number; category_name: string; confidence: number; source: string } | null
       }
       setDialogOpen(true)
       if (data.amount != null) setValue('amount', data.amount)
+      if (data.date) setValue('transaction_date', data.date)
       if (data.category_suggestion?.category_id) {
         setValue('category_id', data.category_suggestion.category_id)
         setSuggestion(data.category_suggestion)
