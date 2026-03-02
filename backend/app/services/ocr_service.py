@@ -61,20 +61,28 @@ def scan_receipt(image_bytes: bytes) -> dict:
     )
     return result
 
-# Matches M/D/YYYY, MM/DD/YYYY, YYYY-MM-DD
-_DATE_RE = re.compile(r"\b(\d{1,4}[-/]\d{1,2}[-/]\d{2,4})\b")
+# Matches M/D/YYYY, MM/DD/YYYY, YYYY-MM-DD, "March 2, 2026", "Mar 2, 2026"
+_DATE_RE = re.compile(
+    r"\b(\d{1,4}[-/]\d{1,2}[-/]\d{2,4})\b"
+    r"|"
+    r"\b([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})\b"
+)
 
 
 def _extract_dates(cord) -> list[str]:
     dates: list[str] = []
+
+    def _scan(v: str) -> None:
+        dates.extend(m for tup in _DATE_RE.findall(v) for m in tup if m)
+
     for v in (cord.get("total") or {}).values():
         if isinstance(v, str):
-            dates.extend(_DATE_RE.findall(v))
+            _scan(v)
     for item in (cord.get("menu") or []):
         if isinstance(item, dict):
             for v in item.values():
                 if isinstance(v, str):
-                    dates.extend(_DATE_RE.findall(v))
+                    _scan(v)
     return list(dict.fromkeys(dates))  # deduplicate, preserve order
 
 
@@ -89,6 +97,11 @@ def _parse_cord(cord) -> dict:
     total = _parse_amount(total_node.get("total_price", ""))
     subtotal = _parse_amount(sub_total_node.get("subtotal_price", ""))
     tax = _parse_amount(sub_total_node.get("tax_price", ""))
+    # If tax >= subtotal it's mislabeled — treat it as the total instead
+    if tax is not None and subtotal is not None and tax >= subtotal:
+        if total is None:
+            total = tax
+        tax = None
     # Some receipts (e.g. Walmart) put the grand total in cord['price'] instead of cord['total']['total_price']
     if total is None:
         total = _parse_amount(cord.get("price", ""))
@@ -111,9 +124,16 @@ def _parse_cord(cord) -> dict:
 
 
 def _parse_amount(s: str) -> float | None:
+    if not isinstance(s, str):
+        return None
+    # Reject strings that don't look like prices (no $ and no decimal point)
+    if "$" not in s and "." not in s:
+        return None
     cleaned = re.sub(r"[^\d.]", "", s)
     try:
-        return float(cleaned) if cleaned else None
+        v = float(cleaned) if cleaned else None
+        # Reject implausibly large values (> $99,999 is not a receipt total)
+        return v if v is None or v < 100_000 else None
     except ValueError:
         return None
 
