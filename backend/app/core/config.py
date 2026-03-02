@@ -14,14 +14,14 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/0"
 
     # Security
-    SECRET_KEY: str = "your-secret-key-change-this-in-production"
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
-    FIRST_SUPERUSER_EMAIL: str = "admin@example.com"
-    FIRST_SUPERUSER_PASSWORD: str = "admin123"
-    FIRST_SUPERUSER_USERNAME: str = "admin"
-    FIRST_SUPERUSER_FULL_NAME: str | None = "Administrator"
+    FIRST_SUPERUSER_EMAIL: str
+    FIRST_SUPERUSER_PASSWORD: str
+    FIRST_SUPERUSER_USERNAME: str
+    FIRST_SUPERUSER_FULL_NAME: str | None = None
 
     # CORS
     BACKEND_CORS_ORIGINS: list = ["http://localhost:5173", "http://localhost:3000"]

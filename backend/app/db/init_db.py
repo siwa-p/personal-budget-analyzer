@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app import crud, schemas
+from app.core.config import settings
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
@@ -148,6 +149,23 @@ PREDEFINED_CATEGORIES = [
         "color": "#58D68D"
     }
 ]
+
+
+def init_superuser(db: Session) -> None:
+    user = crud.user.get_by_email(db, email=settings.FIRST_SUPERUSER_EMAIL.lower())
+    if user:
+        logger.info(f"Superuser '{settings.FIRST_SUPERUSER_EMAIL}' already exists. Skipping creation.")
+        return
+    user_in = schemas.UserCreate(
+        email=settings.FIRST_SUPERUSER_EMAIL,
+        username=settings.FIRST_SUPERUSER_USERNAME,
+        full_name=settings.FIRST_SUPERUSER_FULL_NAME,
+        password=settings.FIRST_SUPERUSER_PASSWORD,
+        is_active=True,
+        is_superuser=True,
+    )
+    crud.user.create(db, obj_in=user_in)
+    logger.info(f"Superuser '{settings.FIRST_SUPERUSER_EMAIL}' created successfully.")
 
 
 def init_db(db: Session) -> None:

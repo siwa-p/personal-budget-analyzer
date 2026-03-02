@@ -59,7 +59,7 @@ services:
       context: .
       dockerfile: docker/backend.Dockerfile
     container_name: budget_analyzer_celery
-    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    command: celery -A app.core.celery_app.celery_app worker --loglevel=info --uid=nobody
     volumes:
       - ./backend:/app
     env_file:

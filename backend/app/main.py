@@ -5,8 +5,8 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.logger_init import setup_logging
 from app.db.base import Base
-from app.db.init_db import init_db
-from app.db.session import SessionLocal, engine
+from app.db.init_db import init_db, init_superuser
+from app.db.session import engine, get_session
 
 logger = setup_logging()
 
@@ -15,11 +15,9 @@ Base.metadata.create_all(bind=engine)
 logger.info("Database tables created.")
 
 # Initialize database with predefined data
-db = SessionLocal()
-try:
+with get_session() as db:
     init_db(db)
-finally:
-    db.close()
+    init_superuser(db)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
