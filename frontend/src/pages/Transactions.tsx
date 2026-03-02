@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import {
   Alert,
@@ -69,7 +69,16 @@ function Transactions() {
   const [sortKey, setSortKey] = useState<SortKey>('transaction_date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
-  const { register, handleSubmit, reset, control, watch } = useForm<TransactionFormValues>({
+  const [suggestion, setSuggestion] = useState<{
+    category_id: number
+    category_name: string
+    confidence: number
+    source: string
+  } | null>(null)
+  const [suggestionLoading, setSuggestionLoading] = useState(false)
+  const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const { register, handleSubmit, reset, control, watch, setValue, getValues } = useForm<TransactionFormValues>({
     defaultValues: {
       amount: 0,
       transaction_date: new Date().toISOString().slice(0, 10),
@@ -107,26 +116,17 @@ function Transactions() {
       setIsLoadingCategories(true)
       setError(null)
       try {
-        const [userResponse, systemResponse] = await Promise.all([
-          fetch(`${apiUrl}/api/v1/categories/`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          fetch(`${apiUrl}/api/v1/categories/system`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        ])
+        const response = await fetch(`${apiUrl}/api/v1/categories/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
 
-        if (!userResponse.ok && !systemResponse.ok) {
+        if (!response.ok) {
           throw new Error('Failed to load categories.')
         }
 
-        const userCategories = userResponse.ok ? ((await userResponse.json()) as Category[]) : []
-        const systemCategories = systemResponse.ok ? ((await systemResponse.json()) as Category[]) : []
-        const uniqueCategories = Array.from(
-          new Map([...userCategories, ...systemCategories].map((category) => [category.id, category])).values()
-        )
+        const categories = (await response.json()) as Category[]
         setCategories(
-          uniqueCategories
+          categories
             .filter((category) => category.is_active)
             .sort((a, b) => a.name.localeCompare(b.name))
         )
@@ -140,6 +140,47 @@ function Transactions() {
     loadCategories()
     loadTransactions()
   }, [token, loadTransactions])
+
+  const handleDescriptionChange = (value: string) => {
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current)
+    if (value.trim().length < 3) {
+      setSuggestion(null)
+      return
+    }
+    suggestTimerRef.current = setTimeout(async () => {
+      setSuggestionLoading(true)
+      try {
+        const res = await fetch(
+          `${apiUrl}/api/v1/transactions/suggest-category?description=${encodeURIComponent(value)}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        const data = (await res.json()) as {
+          category_id: number | null
+          category_name: string | null
+          confidence: number
+          source: string
+        }
+        if (data.category_id) {
+          setSuggestion(data as NonNullable<typeof suggestion>)
+          if (!getValues('category_id')) {
+            setValue('category_id', data.category_id, { shouldValidate: true })
+          }
+        } else {
+          setSuggestion(null)
+        }
+      } catch {
+        setSuggestion(null)
+      } finally {
+        setSuggestionLoading(false)
+      }
+    }, 500)
+  }
+
+  const clearSuggestion = () => {
+    setSuggestion(null)
+    setSuggestionLoading(false)
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current)
+  }
 
   const handleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -226,6 +267,7 @@ function Transactions() {
 
       await loadTransactions()
       setDialogOpen(false)
+      clearSuggestion()
       setSuccess('Transaction added successfully.')
       reset({
         amount: 0,
@@ -359,7 +401,7 @@ function Transactions() {
         </TableContainer>
       )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen} onClose={() => { setDialogOpen(false); clearSuggestion() }} fullWidth maxWidth="sm">
         <DialogTitle>Add Transaction</DialogTitle>
         <DialogContent>
           <Box
@@ -389,7 +431,9 @@ function Transactions() {
               label="Description"
               placeholder="Optional notes"
               InputLabelProps={{ shrink: true }}
-              {...register('description')}
+              {...register('description', {
+                onChange: (e) => handleDescriptionChange(e.target.value)
+              })}
               disabled={isSubmitting}
             />
 
@@ -417,6 +461,19 @@ function Transactions() {
               />
             </FormControl>
 
+            {suggestionLoading && (
+              <Typography variant="caption" color="text.secondary">
+                Suggesting category…
+              </Typography>
+            )}
+            {!suggestionLoading && suggestion && (
+              <Typography variant="caption" color="text.secondary">
+                Suggested: <strong>{suggestion.category_name}</strong>{' '}
+                ({Math.round(suggestion.confidence * 100)}% confidence
+                {suggestion.source === 'rules' ? ', keyword match' : ''})
+              </Typography>
+            )}
+
             {selectedCategory && (
               <Typography variant="body2" color="text.secondary">
                 Transaction type inferred from category: {selectedCategory.type}
@@ -425,7 +482,7 @@ function Transactions() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setDialogOpen(false); clearSuggestion() }}>Cancel</Button>
           <Button type="submit" form="add-transaction-form" variant="contained" disabled={isSubmitting || isLoadingCategories}>
             {isSubmitting ? 'Saving...' : 'Add transaction'}
           </Button>
