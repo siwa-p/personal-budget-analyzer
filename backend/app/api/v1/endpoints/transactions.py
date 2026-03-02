@@ -176,6 +176,7 @@ def scan_receipt(
         "amount": extracted.get("amount"),
         "description": extracted.get("description"),
         "date": date_iso,
+        "total_validated": extracted.get("total_validated"),
         "category_suggestion": suggestion,
     }
 

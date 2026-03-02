@@ -77,6 +77,7 @@ function Transactions() {
   } | null>(null)
   const [suggestionLoading, setSuggestionLoading] = useState(false)
   const [scanLoading, setScanLoading] = useState(false)
+  const [amountWarning, setAmountWarning] = useState(false)
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSuggestionRef = useRef<typeof suggestion>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -201,11 +202,13 @@ function Transactions() {
         amount: number | null
         description: string | null
         date: string | null
+        total_validated: boolean | null
         category_suggestion: { category_id: number; category_name: string; confidence: number; source: string } | null
       }
       setDialogOpen(true)
       if (data.amount != null) setValue('amount', data.amount)
       if (data.date) setValue('transaction_date', data.date)
+      setAmountWarning(data.total_validated === false)
       if (data.category_suggestion?.category_id) {
         setValue('category_id', data.category_suggestion.category_id)
         setSuggestion(data.category_suggestion)
@@ -223,6 +226,7 @@ function Transactions() {
     setSuggestion(null)
     lastSuggestionRef.current = null
     setSuggestionLoading(false)
+    setAmountWarning(false)
     if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current)
   }
 
@@ -495,6 +499,11 @@ function Transactions() {
               {...register('amount', { required: true, valueAsNumber: true, min: 0.01 })}
               disabled={isSubmitting}
             />
+            {amountWarning && (
+              <Typography variant="caption" color="warning.main">
+                OCR totals don't match — please verify the amount
+              </Typography>
+            )}
 
             <TextField
               label="Date"
