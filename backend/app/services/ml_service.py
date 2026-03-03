@@ -138,13 +138,15 @@ def _get_training_data(db: Session, user_id: int) -> list[tuple[str, str]]:
         if desc and desc.strip():
             samples.extend([(desc.strip(), cat_name)] * CORRECTION_WEIGHT)
 
+    from collections import Counter
+    cat_counts = Counter(cat for _, cat in samples)
     logger.info(
         f"User {user_id}: training data — {len(rows)} transactions + {len(feedback_rows)} corrections "
-        f"(x{CORRECTION_WEIGHT}) = {len(samples)} total samples"
+        f"(x{CORRECTION_WEIGHT}) = {len(samples)} total samples | distribution: {dict(cat_counts)}"
     )
-    if feedback_rows:
-        for desc, cat_name in feedback_rows:
-            logger.info(f"  [correction] '{desc}' → '{cat_name}'")
+    for desc, cat_name in feedback_rows:
+        if desc and desc.strip():
+            logger.info(f"  [correction sample x{CORRECTION_WEIGHT}] '{desc}' → '{cat_name}'")
 
     return samples
 

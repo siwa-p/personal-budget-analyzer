@@ -132,12 +132,27 @@ def submit_category_feedback(
 ) -> schemas.CategoryFeedbackRead:
     """Record whether the user accepted or overrode a category suggestion."""
     feedback = crud.category_feedback.create(db, obj_in=feedback_in, user_id=current_user.id)
+
+    chosen_cat = crud.category.get(db, id=feedback_in.chosen_category_id)
+    chosen_name = chosen_cat.name if chosen_cat else f"id={feedback_in.chosen_category_id}"
+    if feedback.is_correction:
+        suggested_cat = crud.category.get(db, id=feedback_in.suggested_category_id) if feedback_in.suggested_category_id else None
+        suggested_name = suggested_cat.name if suggested_cat else "none"
+        logger.info(
+            f"[training sample] User {current_user.id}: CORRECTION "
+            f"'{feedback_in.description}' → '{chosen_name}' (was suggested '{suggested_name}', "
+            f"source={feedback.source!r}, confidence={feedback_in.confidence}) — weight x3 in training"
+        )
+    else:
+        logger.info(
+            f"[training sample] User {current_user.id}: ACCEPTED "
+            f"'{feedback_in.description}' → '{chosen_name}' "
+            f"(source={feedback.source!r}, confidence={feedback_in.confidence})"
+        )
+
     if feedback.is_correction or feedback.source in (None, "none"):
         ml_invalidate_cache(current_user.id)
-        logger.info(
-            f"User {current_user.id}: ML cache invalidated "
-            f"(correction={feedback.is_correction}, source={feedback.source!r})"
-        )
+
     return schemas.CategoryFeedbackRead.model_validate(feedback)
 
 
