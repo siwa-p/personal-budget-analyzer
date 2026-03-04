@@ -7,9 +7,68 @@ from sqlalchemy import extract, func, select
 from app import models
 from app.api.deps import CurrentUser, DbSession
 from app.core.logger_init import setup_logging
+from app.services.ml_service import benchmark_classifiers, get_ml_status, tune_classifiers
 
 logger = setup_logging()
 router = APIRouter()
+
+
+@router.get("/ml-benchmark", status_code=status.HTTP_200_OK)
+def get_ml_benchmark(*, db: DbSession, current_user: CurrentUser):
+    result = benchmark_classifiers(db, current_user.id)
+    if "error" in result:
+        logger.warning(f"User {current_user.id}: ml-benchmark skipped — {result['error']}")
+    else:
+        for clf_name, metrics in result.get("classifiers", {}).items():
+            if "error" in metrics:
+                logger.warning(f"User {current_user.id}: [{clf_name}] failed — {metrics['error']}")
+            else:
+                logger.info(
+                    f"User {current_user.id}: [{clf_name}] "
+                    f"acc={metrics['accuracy']:.4f}±{metrics['accuracy_std']:.4f}  "
+                    f"f1_macro={metrics['f1_macro']:.4f}±{metrics['f1_macro_std']:.4f}  "
+                    f"f1_weighted={metrics['f1_weighted']:.4f}  "
+                    f"fit={metrics['fit_time_s']:.4f}s  score={metrics['score_time_s']:.4f}s"
+                )
+        logger.info(
+            f"User {current_user.id}: benchmark ranking (f1_macro) — {result['ranking_by_f1_macro']}"
+        )
+    return result
+
+
+@router.get("/ml-status", status_code=status.HTTP_200_OK)
+def get_ml_status_endpoint(*, db: DbSession, current_user: CurrentUser):
+    """Return the active model name, tuned hyperparameters, CV score, and whether a retune is recommended."""
+    return get_ml_status(db, current_user.id)
+
+
+@router.get("/ml-tune", status_code=status.HTTP_200_OK)
+def get_ml_tune(*, db: DbSession, current_user: CurrentUser):
+    """Grid-search best hyperparameters for each classifier using the user's transaction data.
+
+    Classes with fewer than MIN_CLASS_FOR_CV samples are excluded from the search
+    to ensure stable stratified CV folds. Expect this to take 10-60s depending on
+    data size.
+    """
+    result = tune_classifiers(db, current_user.id)
+    if "error" in result:
+        logger.warning(f"User {current_user.id}: ml-tune skipped — {result['error']}")
+    else:
+        for clf_name, metrics in result.get("results", {}).items():
+            if "error" in metrics:
+                logger.warning(f"User {current_user.id}: tune [{clf_name}] failed — {metrics['error']}")
+            else:
+                logger.info(
+                    f"User {current_user.id}: tune [{clf_name}] "
+                    f"best_f1_macro={metrics['best_f1_macro']:.4f}  "
+                    f"candidates={metrics['n_candidates']}  "
+                    f"wall={metrics['search_wall_s']}s  "
+                    f"best_params={metrics['best_params']}"
+                )
+        logger.info(
+            f"User {current_user.id}: tune ranking (f1_macro) — {result['ranking_by_best_f1_macro']}"
+        )
+    return result
 
 
 @router.get("/category-distribution", status_code=status.HTTP_200_OK)
