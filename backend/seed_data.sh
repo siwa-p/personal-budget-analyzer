@@ -6,10 +6,16 @@
 # Usage: ./seed_data.sh [BASE_URL] [EMAIL] [PASSWORD]
 # =============================================================================
 
+# Load a single variable from .env without sourcing the whole file
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+read_env() {
+    grep -E "^${1}=" "${SCRIPT_DIR}/.env" 2>/dev/null | head -1 | cut -d'=' -f2- | sed 's/[[:space:]]*#.*//' | xargs
+}
+
 BASE_URL="${1:-http://localhost:8000}"
 API="${BASE_URL}/api/v1"
-EMAIL="${2:-}"
-PASSWORD="${3:-}"
+EMAIL="${2:-$(read_env FIRST_SUPERUSER_EMAIL)}"
+PASSWORD="${3:-$(read_env FIRST_SUPERUSER_PASSWORD)}"
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -17,12 +23,10 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-if [ -z "$EMAIL" ]; then
-  read -rp "Email: " EMAIL
-fi
-if [ -z "$PASSWORD" ]; then
-  read -rs -p "Password: " PASSWORD
-  echo
+if [ -z "$EMAIL" ] || [ -z "$PASSWORD" ]; then
+  echo "Error: no credentials found. Set FIRST_SUPERUSER_EMAIL/FIRST_SUPERUSER_PASSWORD in .env"
+  echo "       or pass as arguments: ./seed_data.sh [URL] [EMAIL] [PASSWORD]"
+  exit 1
 fi
 
 # Helper: POST/GET/etc, returns "<status>\n<body>"

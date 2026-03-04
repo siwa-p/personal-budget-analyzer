@@ -22,3 +22,5 @@ redis_data/
 ruff.toml
 
 logs/
+
+*.pytest_cache

@@ -33,6 +33,7 @@ def get_category_distribution(
         .join(models.Category, models.Transactions.category_id == models.Category.id)
         .where(
             models.Transactions.user_id == current_user.id,
+            models.Category.type == "expense",
             models.Transactions.transaction_date >= start_date,
             models.Transactions.transaction_date <= end_date
         )

@@ -1,0 +1,84 @@
+[project]
+name = "smores-syntax"
+version = "0.1.0"
+description = "Personal Budget Analyzer"
+readme = "README.md"
+authors = [
+    { name = "siwa-p", email = "prasiwakoti@gmail.com" },
+    { name = "author2", email = "author2@example.com" },
+    { name = "author3", email = "author3@example.com" },
+]
+requires-python = ">=3.12"
+dependencies = [
+    # FastAPI
+    "fastapi==0.115.4",
+    "uvicorn[standard]==0.32.0",
+    "python-multipart==0.0.12",
+
+    # Database
+    "sqlalchemy==2.0.35",
+    "psycopg2-binary==2.9.9",
+
+    # Authentication
+    "python-jose[cryptography]==3.3.0",
+    "passlib[bcrypt]==1.7.4",
+    "bcrypt==4.0.1",
+    "python-dotenv==1.0.1",
+
+    # DateTime
+    "pendulum>=3.0.0",
+
+    # Validation
+    "pydantic==2.9.2",
+    "pydantic-settings==2.6.0",
+    "email-validator==2.2.0",
+    "fastapi-mail==1.4.1",
+
+    # Async Tasks
+    "celery==5.4.0",
+    "redis==5.2.0",
+
+    # ML & Data Processing
+    "scikit-learn==1.5.2",
+    "pandas==2.2.3",
+    "numpy==2.1.3",
+    "joblib==1.4.2",
+
+    # Receipt Scanning (Donut via HuggingFace)
+    "torch==2.6.0",
+    "torchvision==0.21.0",
+    "transformers>=5.0.0",
+    "sentencepiece==0.2.0",
+
+    # External APIs
+    "plaid-python==29.0.0",
+    "pillow==11.0.0",
+    "pytesseract==0.3.13",
+
+    # Export
+    "reportlab==4.2.5",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.3.3",
+    "pytest-asyncio==0.24.0",
+    "httpx==0.27.2",
+    "ruff",
+]
+
+[tool.ruff]
+line-length = 120
+select = ["E", "F", "I", "W", "N", "UP", "B", "S", "SIM", "RUF", "T20"]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+torchvision = [{ index = "pytorch-cpu" }]
