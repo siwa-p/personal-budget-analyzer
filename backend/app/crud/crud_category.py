@@ -37,13 +37,13 @@ class CRUDCategory(CRUDBase[Category, CategoryCreate, CategoryUpdate]):
     def get_by_name_and_user(
         self, db: Session, *, name: str, type: str, user_id: int | None
     ) -> Category | None:
-        """Check if a category with this name and type already exists for this user"""
+        """Check if a category with this name and type already exists for this user or as a system category"""
         stmt = select(Category).where(
             Category.name == name,
             Category.type == type,
-            Category.user_id == user_id
+            (Category.user_id == user_id) | (Category.user_id.is_(None)),
         )
-        return db.execute(stmt).scalar_one_or_none()
+        return db.execute(stmt).scalars().first()
 
     def create(self, db: Session, *, obj_in: CategoryCreate, user_id:int | None) -> Category:
         db_obj = Category(

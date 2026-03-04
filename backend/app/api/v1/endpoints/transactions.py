@@ -6,6 +6,7 @@ from app import crud, schemas
 from app.api import deps
 from app.api.deps import CurrentUser, DbSession, UserTransaction
 from app.core.logger_init import setup_logging
+from app.services.ml_service import invalidate_cache as ml_invalidate_cache
 from app.services.ml_service import predict_category as ml_predict_category
 
 logger = setup_logging()
@@ -108,6 +109,24 @@ def suggest_category(
     all_cats = crud.category.get_by_user(db, user_id=current_user.id)
     available = [{"id": c.id, "name": c.name, "type": c.type} for c in all_cats]
     return ml_predict_category(db, current_user.id, description.strip(), available)
+
+
+@router.post("/feedback", response_model=schemas.CategoryFeedbackRead, status_code=status.HTTP_201_CREATED)
+def submit_category_feedback(
+    *,
+    db: DbSession,
+    feedback_in: schemas.CategoryFeedbackCreate,
+    current_user: CurrentUser,
+) -> schemas.CategoryFeedbackRead:
+    """Record whether the user accepted or overrode a category suggestion."""
+    feedback = crud.category_feedback.create(db, obj_in=feedback_in, user_id=current_user.id)
+    if feedback.is_correction or feedback.source in (None, "none"):
+        ml_invalidate_cache(current_user.id)
+        logger.info(
+            f"User {current_user.id}: ML cache invalidated "
+            f"(correction={feedback.is_correction}, source={feedback.source!r})"
+        )
+    return schemas.CategoryFeedbackRead.model_validate(feedback)
 
 
 @router.get("/{transaction_id}", response_model=schemas.TransactionRead)

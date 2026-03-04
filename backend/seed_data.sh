@@ -103,13 +103,13 @@ print(match if match is not None else '')
 }
 
 GROCERIES_ID=$(create_cat "Groceries" "expense")
-DINING_ID=$(create_cat "Dining Out" "expense")
+DINING_ID=$(create_cat "Dining" "expense")
 UTILITIES_ID=$(create_cat "Utilities" "expense")
-TRANSPORT_ID=$(create_cat "Transport" "expense")
+TRANSPORT_ID=$(create_cat "Transportation" "expense")
 ENTERTAINMENT_ID=$(create_cat "Entertainment" "expense")
 SHOPPING_ID=$(create_cat "Shopping" "expense")
-HEALTHCARE_ID=$(create_cat "Healthcare" "expense")
-RENT_ID=$(create_cat "Rent" "expense")
+HEALTHCARE_ID=$(create_cat "Health & Fitness" "expense")
+RENT_ID=$(create_cat "Housing" "expense")
 SALARY_ID=$(create_cat "Salary" "income")
 FREELANCE_ID=$(create_cat "Freelance" "income")
 echo ""

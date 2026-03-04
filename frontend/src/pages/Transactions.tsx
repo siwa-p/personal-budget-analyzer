@@ -77,6 +77,7 @@ function Transactions() {
   } | null>(null)
   const [suggestionLoading, setSuggestionLoading] = useState(false)
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSuggestionRef = useRef<typeof suggestion>(null)
 
   const { register, handleSubmit, reset, control, watch, setValue, getValues } = useForm<TransactionFormValues>({
     defaultValues: {
@@ -162,11 +163,13 @@ function Transactions() {
         }
         if (data.category_id) {
           setSuggestion(data as NonNullable<typeof suggestion>)
+          lastSuggestionRef.current = data as NonNullable<typeof suggestion>
           if (!getValues('category_id')) {
             setValue('category_id', data.category_id, { shouldValidate: true })
           }
         } else {
           setSuggestion(null)
+          lastSuggestionRef.current = null
         }
       } catch {
         setSuggestion(null)
@@ -178,6 +181,7 @@ function Transactions() {
 
   const clearSuggestion = () => {
     setSuggestion(null)
+    lastSuggestionRef.current = null
     setSuggestionLoading(false)
     if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current)
   }
@@ -243,6 +247,8 @@ function Transactions() {
     setError(null)
     setSuccess(null)
 
+    const capturedSuggestion = lastSuggestionRef.current
+
     try {
       const response = await fetch(`${apiUrl}/api/v1/transactions`, {
         method: 'POST',
@@ -263,6 +269,23 @@ function Transactions() {
         const data = await response.json().catch(() => null)
         const message = data?.detail || 'Failed to create transaction.'
         throw new Error(message)
+      }
+
+      const newTransaction = (await response.json()) as Transaction
+
+      if (values.description?.trim()) {
+        void fetch(`${apiUrl}/api/v1/transactions/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            transaction_id: newTransaction.id,
+            description: values.description,
+            suggested_category_id: capturedSuggestion?.category_id ?? null,
+            chosen_category_id: values.category_id,
+            source: capturedSuggestion?.source ?? null,
+            confidence: capturedSuggestion?.confidence ?? null,
+          })
+        }).catch(() => { /* silently ignore — must not affect transaction UX */ })
       }
 
       await loadTransactions()
