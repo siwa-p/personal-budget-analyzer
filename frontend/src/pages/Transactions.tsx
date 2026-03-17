@@ -68,6 +68,10 @@ function Transactions() {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('transaction_date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [filterCategoryId, setFilterCategoryId] = useState<number | 'all'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all')
+  const [filterStartDate, setFilterStartDate] = useState('')
+  const [filterEndDate, setFilterEndDate] = useState('')
 
   const [suggestion, setSuggestion] = useState<{
     category_id: number
@@ -101,9 +105,27 @@ function Transactions() {
     if (!token) return
     setIsLoadingTransactions(true)
     try {
-      const response = await fetch(`${apiUrl}/api/v1/transactions/`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const params = new URLSearchParams()
+      if (filterCategoryId !== 'all') {
+        params.set('category_id', String(filterCategoryId))
+      }
+      if (filterType !== 'all') {
+        params.set('transaction_type', filterType)
+      }
+      if (filterStartDate) {
+        params.set('start_date', filterStartDate)
+      }
+      if (filterEndDate) {
+        params.set('end_date', filterEndDate)
+      }
+      const query = params.toString()
+
+      const response = await fetch(
+        `${apiUrl}/api/v1/transactions/${query ? `?${query}` : ''}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
       if (!response.ok) throw new Error('Failed to load transactions.')
       const data = (await response.json()) as Transaction[]
       setTransactions(data)
@@ -112,7 +134,54 @@ function Transactions() {
     } finally {
       setIsLoadingTransactions(false)
     }
-  }, [token])
+  }, [token, filterCategoryId, filterType, filterStartDate, filterEndDate])
+
+  const handleExportCsv = useCallback(async () => {
+    if (!token) {
+      setError('You must be logged in to export transactions.')
+      return
+    }
+
+    try {
+      const params = new URLSearchParams()
+      if (filterCategoryId !== 'all') {
+        params.set('category_id', String(filterCategoryId))
+      }
+      if (filterType !== 'all') {
+        params.set('transaction_type', filterType)
+      }
+      if (filterStartDate) {
+        params.set('start_date', filterStartDate)
+      }
+      if (filterEndDate) {
+        params.set('end_date', filterEndDate)
+      }
+      const query = params.toString()
+
+      const response = await fetch(
+        `${apiUrl}/api/v1/transactions/export${query ? `?${query}` : ''}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to export transactions.')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'transactions.csv'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : 'Unknown error exporting transactions.')
+    }
+  }, [token, filterCategoryId, filterType, filterStartDate, filterEndDate])
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -355,31 +424,94 @@ function Transactions() {
         Transactions
       </Typography>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2 }}>
-        <TextField
-          size="small"
-          placeholder="Search transactions..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ flexGrow: 1 }}
-        />
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          ref={fileInputRef}
-          style={{ display: 'none' }}
-          onChange={handleReceiptScan}
-        />
-        <Button
-          variant="outlined"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!token || scanLoading}
-        >
-          {scanLoading ? 'Scanning...' : 'Scan Receipt'}
-        </Button>
-        <Button variant="contained" onClick={() => setDialogOpen(true)} disabled={!token}>
-          + Add Transaction
-        </Button>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <TextField
+            size="small"
+            placeholder="Search transactions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ flexGrow: 1 }}
+          />
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            onChange={handleReceiptScan}
+          />
+          <Button
+            variant="outlined"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!token || scanLoading}
+          >
+            {scanLoading ? 'Scanning...' : 'Scan Receipt'}
+          </Button>
+          <Button variant="contained" onClick={() => setDialogOpen(true)} disabled={!token}>
+            + Add Transaction
+          </Button>
+        </Box>
+
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel id="filter-category-label">Category</InputLabel>
+            <Select
+              labelId="filter-category-label"
+              label="Category"
+              value={filterCategoryId}
+              onChange={(e) =>
+                setFilterCategoryId(e.target.value === 'all' ? 'all' : Number(e.target.value))
+              }
+            >
+              <MenuItem value="all">All categories</MenuItem>
+              {categories.map((category) => (
+                <MenuItem key={category.id} value={category.id}>
+                  {category.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel id="filter-type-label">Type</InputLabel>
+            <Select
+              labelId="filter-type-label"
+              label="Type"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as 'all' | 'income' | 'expense')}
+            >
+              <MenuItem value="all">All types</MenuItem>
+              <MenuItem value="income">Income</MenuItem>
+              <MenuItem value="expense">Expense</MenuItem>
+            </Select>
+          </FormControl>
+
+          <TextField
+            label="Start date"
+            type="date"
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={filterStartDate}
+            onChange={(e) => setFilterStartDate(e.target.value)}
+          />
+          <TextField
+            label="End date"
+            type="date"
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={filterEndDate}
+            onChange={(e) => setFilterEndDate(e.target.value)}
+          />
+
+          <Box sx={{ flexGrow: 1 }} />
+
+          <Button variant="outlined" onClick={loadTransactions} disabled={!token || isLoadingTransactions}>
+            Apply filters
+          </Button>
+          <Button variant="contained" onClick={handleExportCsv} disabled={!token || isLoadingTransactions}>
+            Export CSV
+          </Button>
+        </Box>
       </Box>
 
       {!token && (

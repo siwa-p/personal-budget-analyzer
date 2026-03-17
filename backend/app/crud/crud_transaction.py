@@ -71,6 +71,30 @@ class CRUDTransaction(CRUDBase[Transactions, TransactionCreate, TransactionUpdat
         )
         return list(db.execute(stmt).scalars().all())
 
+    def get_filtered_for_export(
+        self,
+        db: Session,
+        *,
+        user_id: int,
+        category_id: int | None = None,
+        transaction_type: str | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[Transactions]:
+        stmt = select(Transactions).where(Transactions.user_id == user_id)
+
+        if category_id is not None:
+            stmt = stmt.where(Transactions.category_id == category_id)
+        if transaction_type is not None:
+            stmt = stmt.where(Transactions.transaction_type == transaction_type)
+        if start_date is not None:
+            stmt = stmt.where(Transactions.transaction_date >= start_date)
+        if end_date is not None:
+            stmt = stmt.where(Transactions.transaction_date <= end_date)
+
+        stmt = stmt.order_by(Transactions.transaction_date.desc())
+        return list(db.execute(stmt).scalars().all())
+
     def create(self, db: Session, *, obj_in: TransactionCreate, user_id: int) -> Transactions:
         db_obj = Transactions(
             user_id=user_id,
