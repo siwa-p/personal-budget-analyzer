@@ -7,7 +7,7 @@ from app import crud, schemas
 from app.api import deps
 from app.api.deps import CurrentUser, DbSession, UserTransaction
 from app.core.logger_init import setup_logging
-from app.services.ml_service import invalidate_cache as ml_invalidate_cache
+from app.services.ml_service import incremental_update as ml_incremental_update
 from app.services.ml_service import predict_category as ml_predict_category
 
 logger = setup_logging()
@@ -150,8 +150,7 @@ def submit_category_feedback(
             f"(source={feedback.source!r}, confidence={feedback_in.confidence})"
         )
 
-    if feedback.is_correction or feedback.source in (None, "none"):
-        ml_invalidate_cache(current_user.id)
+    ml_incremental_update(current_user.id, feedback_in.description, chosen_name, is_correction=feedback.is_correction)
 
     return schemas.CategoryFeedbackRead.model_validate(feedback)
 

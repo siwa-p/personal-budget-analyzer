@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Component, ReactNode, Suspense, use, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -8,6 +8,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  SelectChangeEvent,
   Typography
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
@@ -77,47 +78,98 @@ function buildPieData(points: CategoryPoint[]): PieDataPoint[] {
   return data
 }
 
-function SpendingPieChart({ token }: SpendingPieChartProps) {
-  const muiTheme = useTheme()
-  const [monthRange, setMonthRange] = useState<MonthRange>(6)
-  const [chartData, setChartData] = useState<PieDataPoint[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+// Pure async function — fetched outside of React, no hooks.
+// React 19: this promise is passed to use() in the inner component.
+async function fetchPieData(token: string, monthRange: MonthRange): Promise<PieDataPoint[]> {
+  const { startDateStr, endDateStr } = getDateRange(monthRange)
+  const response = await fetch(
+    `${apiUrl}/api/v1/analytics/category-distribution` +
+      `?start_date=${startDateStr}&end_date=${endDateStr}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (!response.ok) throw new Error('Failed to load category distribution data.')
+  const data = (await response.json()) as CategoryDistributionResponse
+  return buildPieData(data.category_distribution)
+}
 
-  useEffect(() => {
-    if (!token) return
+// Minimal class ErrorBoundary — still the React-recommended pattern for catching
+// errors thrown by use(). Renders an Alert when the promise rejects.
+class ChartErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state: { error: string | null } = { error: null }
 
-    const fetchData = async () => {
-      setIsLoading(true)
-      setError(null)
+  constructor(props: { children: ReactNode }) {
+    super(props)
+  }
 
-      try {
-        const { startDateStr, endDateStr } = getDateRange(monthRange)
+  static getDerivedStateFromError(err: Error) {
+    return { error: err.message }
+  }
 
-        const response = await fetch(
-          `${apiUrl}/api/v1/analytics/category-distribution` +
-            `?start_date=${startDateStr}&end_date=${endDateStr}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-
-        if (!response.ok) throw new Error('Failed to load category distribution data.')
-
-        const data = (await response.json()) as CategoryDistributionResponse
-        setChartData(buildPieData(data.category_distribution))
-      } catch (fetchError) {
-        setError(
-          fetchError instanceof Error ? fetchError.message : 'Unknown error loading chart data.'
-        )
-      } finally {
-        setIsLoading(false)
-      }
+  render() {
+    if (this.state.error) {
+      return <Alert severity="error" sx={{ mt: 1 }}>{this.state.error}</Alert>
     }
+    return this.props.children
+  }
+}
 
-    fetchData()
-  }, [token, monthRange])
-
+// Inner component: use() suspends the render until dataPromise resolves.
+// No loading/error state needed — Suspense handles loading, ErrorBoundary handles errors.
+function PieChartContent({ dataPromise }: { dataPromise: Promise<PieDataPoint[]> }) {
+  const chartData = use(dataPromise)
+  const muiTheme = useTheme()
   const tooltipBg = muiTheme.palette.background.paper
   const tooltipBorder = muiTheme.palette.divider
+
+  if (chartData.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 320 }}>
+        <Typography color="text.secondary">No spending data for this period.</Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={320}>
+      <PieChart>
+        <Pie
+          data={chartData}
+          dataKey="value"
+          nameKey="name"
+          cx="50%"
+          cy="50%"
+          outerRadius={110}
+          innerRadius={55}
+        >
+          {chartData.map((_: PieDataPoint, index: number) => (
+            <Cell key={index} fill={COLORS[index % COLORS.length]} />
+          ))}
+        </Pie>
+        <Tooltip
+          formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]}
+          contentStyle={{
+            backgroundColor: tooltipBg,
+            border: `1px solid ${tooltipBorder}`,
+            borderRadius: 8
+          }}
+          labelStyle={{ color: muiTheme.palette.text.primary }}
+        />
+        <Legend />
+      </PieChart>
+    </ResponsiveContainer>
+  )
+}
+
+// Outer component: owns the range selector and the Suspense/ErrorBoundary boundary.
+// useMemo ensures a new promise is only created when token or monthRange changes —
+// without it, every render would create a new promise and cause an infinite suspense loop.
+function SpendingPieChart({ token }: SpendingPieChartProps) {
+  const [monthRange, setMonthRange] = useState<MonthRange>(6)
+
+  const dataPromise = useMemo(
+    () => fetchPieData(token, monthRange),
+    [token, monthRange]
+  )
 
   return (
     <Paper sx={{ p: 3 }}>
@@ -131,7 +183,7 @@ function SpendingPieChart({ token }: SpendingPieChartProps) {
             labelId="pie-range-label"
             label="Time Range"
             value={monthRange}
-            onChange={e => setMonthRange(e.target.value as MonthRange)}
+            onChange={(e: SelectChangeEvent<MonthRange>) => setMonthRange(e.target.value as MonthRange)}
           >
             <MenuItem value="last">Last month</MenuItem>
             <MenuItem value={3}>Last 3 months</MenuItem>
@@ -141,49 +193,17 @@ function SpendingPieChart({ token }: SpendingPieChartProps) {
         </FormControl>
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : chartData.length === 0 ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 320 }}>
-          <Typography color="text.secondary">No spending data for this period.</Typography>
-        </Box>
-      ) : (
-        <ResponsiveContainer width="100%" height={320}>
-          <PieChart>
-            <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              outerRadius={110}
-              innerRadius={55}
-            >
-              {chartData.map((_, index) => (
-                <Cell key={index} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]}
-              contentStyle={{
-                backgroundColor: tooltipBg,
-                border: `1px solid ${tooltipBorder}`,
-                borderRadius: 8
-              }}
-              labelStyle={{ color: muiTheme.palette.text.primary }}
-            />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
-      )}
+      <ChartErrorBoundary>
+        <Suspense
+          fallback={
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+              <CircularProgress />
+            </Box>
+          }
+        >
+          <PieChartContent dataPromise={dataPromise} />
+        </Suspense>
+      </ChartErrorBoundary>
     </Paper>
   )
 }
