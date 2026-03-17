@@ -1,7 +1,10 @@
 from datetime import date, datetime
 from typing import Annotated
+import csv
+import io
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app import crud, schemas
 from app.api import deps
@@ -58,6 +61,78 @@ def read_transactions(
         transactions = crud.transaction.get_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
 
     return [schemas.TransactionRead.model_validate(txn) for txn in transactions]
+
+
+@router.get("/export", response_class=StreamingResponse)
+def export_transactions(
+    *,
+    db: DbSession,
+    category_id: int | None = None,
+    transaction_type: str | None = Query(default=None, pattern="^(income|expense)$"),
+    start_date: date | None = None,
+    end_date: date | None = None,
+    current_user: CurrentUser,
+) -> StreamingResponse:
+    logger.info(
+        f"User {current_user.id} is exporting transactions with filters - "
+        f"category_id: {category_id}, transaction_type: {transaction_type}, "
+        f"start_date: {start_date}, end_date: {end_date}"
+    )
+
+    transactions = crud.transaction.get_filtered_for_export(
+        db,
+        user_id=current_user.id,
+        category_id=category_id,
+        transaction_type=transaction_type,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    def iter_csv() -> list[str]:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+
+        # Header row
+        writer.writerow(
+            [
+                "id",
+                "date",
+                "description",
+                "category_id",
+                "transaction_type",
+                "amount",
+                "account_name",
+                "bill_id",
+                "goal_id",
+            ]
+        )
+        yield buffer.getvalue()
+        buffer.seek(0)
+        buffer.truncate(0)
+
+        for txn in transactions:
+            writer.writerow(
+                [
+                    txn.id,
+                    txn.transaction_date.isoformat() if txn.transaction_date else "",
+                    txn.description or "",
+                    txn.category_id,
+                    txn.transaction_type,
+                    f"{txn.amount:.2f}" if txn.amount is not None else "",
+                    txn.account_name or "",
+                    txn.bill_id or "",
+                    txn.goal_id or "",
+                ]
+            )
+            yield buffer.getvalue()
+            buffer.seek(0)
+            buffer.truncate(0)
+
+    return StreamingResponse(
+        iter_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="transactions.csv"'},
+    )
 
 
 @router.post("/", response_model=schemas.TransactionRead, status_code=status.HTTP_201_CREATED)
