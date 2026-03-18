@@ -24,3 +24,8 @@ ruff.toml
 logs/
 
 *.pytest_cache
+
+.mcp.json
+
+backend/mlruns/
+
