@@ -164,6 +164,8 @@ def _plot_category_pie(category_points: list[dict[str, Any]]) -> io.BytesIO:
             labels.append("Other")
             values.append(other_total)
 
+        legend_labels = [f"{name} — ${value:,.2f}" for name, value in zip(labels, values, strict=False)]
+
         total_value = sum(values)
 
         def _pct_fmt(pct: float) -> str:
@@ -180,7 +182,7 @@ def _plot_category_pie(category_points: list[dict[str, Any]]) -> io.BytesIO:
         )
         ax.legend(
             wedges,
-            labels,
+            legend_labels,
             title="Categories",
             loc="center left",
             bbox_to_anchor=(1.02, 0.5),
