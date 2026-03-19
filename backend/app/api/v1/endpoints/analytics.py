@@ -1,13 +1,16 @@
 from datetime import datetime
+import io
 
 import pendulum
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import extract, func, select
+from fastapi.responses import StreamingResponse
 
 from app import models
 from app.api.deps import CurrentUser, DbSession
 from app.core.logger_init import setup_logging
 from app.services.ml_service import compare_classifiers
+from app.services.report_service import generate_spending_report_pdf_bytes
 
 logger = setup_logging()
 router = APIRouter()
@@ -126,3 +129,59 @@ def get_monthly_spending_trend(
         ]
     }
     return result
+
+
+@router.get("/spending-report/pdf", response_class=StreamingResponse)
+def get_spending_report_pdf(
+    *,
+    db: DbSession,
+    report_type: str = Query(pattern="^(monthly|yearly)$"),
+    start_year: int | None = None,
+    start_month: int | None = None,
+    end_year: int | None = None,
+    end_month: int | None = None,
+    year: int | None = None,
+    current_user: CurrentUser,
+) -> StreamingResponse:
+    """
+    Download a PDF with spending summary + charts.
+
+    report_type:
+      - monthly: provide start_year/start_month/end_year/end_month
+      - yearly: provide year
+    """
+
+    if report_type == "monthly":
+        missing = [name for name, val in (
+            ("start_year", start_year),
+            ("start_month", start_month),
+            ("end_year", end_year),
+            ("end_month", end_month),
+        ) if val is None]
+        if missing:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Missing parameters for monthly report: {', '.join(missing)}")
+
+    if report_type == "yearly" and year is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Missing parameter 'year' for yearly report")
+
+    pdf_bytes = generate_spending_report_pdf_bytes(
+        db=db,
+        user_id=current_user.id,
+        report_type=report_type,
+        start_year=start_year,
+        start_month=start_month,
+        end_year=end_year,
+        end_month=end_month,
+        year=year,
+    )
+
+    if report_type == "monthly":
+        file_name = f"spending-report-monthly-{start_year}-{start_month}-to-{end_year}-{end_month}.pdf"
+    else:
+        file_name = f"spending-report-yearly-{year}.pdf"
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+    )
