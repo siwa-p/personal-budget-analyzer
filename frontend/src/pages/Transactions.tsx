@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -25,6 +26,7 @@ import {
   TextField,
   Typography
 } from '@mui/material'
+import { Edit, Delete } from '@mui/icons-material'
 import { Controller, useForm } from 'react-hook-form'
 
 type Transaction = {
@@ -65,6 +67,10 @@ function Transactions() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+  const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null)
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('transaction_date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -418,6 +424,109 @@ function Transactions() {
     }
   }
 
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransaction(transaction)
+    setValue('amount', transaction.amount)
+    setValue('transaction_date', transaction.transaction_date)
+    setValue('description', transaction.description || '')
+    setValue('category_id', transaction.category_id)
+    setEditDialogOpen(true)
+  }
+
+  const handleDeleteTransaction = (transaction: Transaction) => {
+    setDeletingTransaction(transaction)
+    setDeleteDialogOpen(true)
+  }
+
+  const onUpdateTransaction = async (values: TransactionFormValues) => {
+    if (!token || !editingTransaction) {
+      setError('You must be logged in to update transactions.')
+      return
+    }
+    const category = categories.find((item) => item.id === values.category_id)
+    if (!category) {
+      setError('Select a valid category.')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/transactions/${editingTransaction.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: values.amount,
+          transaction_date: values.transaction_date,
+          description: values.description || null,
+          category_id: values.category_id,
+          transaction_type: category.type
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        const message = data?.detail || 'Failed to update transaction.'
+        throw new Error(message)
+      }
+
+      await loadTransactions()
+      setEditDialogOpen(false)
+      setEditingTransaction(null)
+      setSuccess('Transaction updated successfully.')
+      reset({
+        amount: 0,
+        transaction_date: new Date().toISOString().slice(0, 10),
+        description: '',
+        category_id: 0
+      })
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : 'Unknown error.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const confirmDeleteTransaction = async () => {
+    if (!token || !deletingTransaction) {
+      setError('You must be logged in to delete transactions.')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/transactions/${deletingTransaction.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        const message = data?.detail || 'Failed to delete transaction.'
+        throw new Error(message)
+      }
+
+      await loadTransactions()
+      setDeleteDialogOpen(false)
+      setDeletingTransaction(null)
+      setSuccess('Transaction deleted successfully.')
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : 'Unknown error.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <Container maxWidth="lg" sx={{ py: 6 }}>
       <Typography variant="h4" sx={{ fontWeight: 600, mb: 2 }}>
@@ -588,6 +697,7 @@ function Transactions() {
                     Amount
                   </TableSortLabel>
                 </TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -600,11 +710,30 @@ function Transactions() {
                   </TableCell>
                   <TableCell>{txn.transaction_type}</TableCell>
                   <TableCell>${txn.amount.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleEditTransaction(txn)}
+                      disabled={!token}
+                      title="Edit transaction"
+                    >
+                      <Edit />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDeleteTransaction(txn)}
+                      disabled={!token}
+                      title="Delete transaction"
+                      color="error"
+                    >
+                      <Delete />
+                    </IconButton>
+                  </TableCell>
                 </TableRow>
               ))}
               {visibleTransactions.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
+                  <TableCell colSpan={6} align="center">
                     {search ? 'No transactions match your search.' : 'No transactions yet.'}
                   </TableCell>
                 </TableRow>
@@ -708,6 +837,115 @@ function Transactions() {
           <Button onClick={() => { setDialogOpen(false); clearSuggestion() }}>Cancel</Button>
           <Button type="submit" form="add-transaction-form" variant="contained" disabled={isSubmitting || isLoadingCategories}>
             {isSubmitting ? 'Saving...' : 'Add transaction'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={editDialogOpen} onClose={() => { setEditDialogOpen(false); setEditingTransaction(null) }} fullWidth maxWidth="sm">
+        <DialogTitle>Edit Transaction</DialogTitle>
+        <DialogContent>
+          <Box
+            component="form"
+            id="edit-transaction-form"
+            onSubmit={handleSubmit(onUpdateTransaction)}
+            sx={{ display: 'grid', gap: 2, pt: 1 }}
+          >
+            <TextField
+              label="Amount"
+              type="number"
+              inputProps={{ step: '0.01', min: 0.01 }}
+              InputLabelProps={{ shrink: true }}
+              {...register('amount', { required: true, valueAsNumber: true, min: 0.01 })}
+              disabled={isSubmitting}
+            />
+
+            <TextField
+              label="Date"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              {...register('transaction_date', { required: true })}
+              disabled={isSubmitting}
+            />
+
+            <TextField
+              label="Description"
+              placeholder="Optional notes"
+              InputLabelProps={{ shrink: true }}
+              {...register('description')}
+              disabled={isSubmitting}
+            />
+
+            <FormControl>
+              <InputLabel id="edit-category-label">Category</InputLabel>
+              <Controller
+                name="category_id"
+                control={control}
+                rules={{ required: true, min: 1 }}
+                render={({ field }) => (
+                  <Select
+                    labelId="edit-category-label"
+                    label="Category"
+                    {...field}
+                    disabled={isSubmitting || isLoadingCategories}
+                  >
+                    <MenuItem value={0}>Select a category</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                )}
+              />
+            </FormControl>
+
+            {selectedCategory && (
+              <Typography variant="body2" color="text.secondary">
+                Transaction type inferred from category: {selectedCategory.type}
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setEditDialogOpen(false); setEditingTransaction(null) }}>Cancel</Button>
+          <Button type="submit" form="edit-transaction-form" variant="contained" disabled={isSubmitting || isLoadingCategories}>
+            {isSubmitting ? 'Updating...' : 'Update transaction'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onClose={() => { setDeleteDialogOpen(false); setDeletingTransaction(null) }}>
+        <DialogTitle>Delete Transaction</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this transaction?
+          </Typography>
+          {deletingTransaction && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="body2">
+                <strong>Date:</strong> {deletingTransaction.transaction_date}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Description:</strong> {deletingTransaction.description || '—'}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Category:</strong> {categories.find((c) => c.id === deletingTransaction.category_id)?.name || deletingTransaction.category_id}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Amount:</strong> ${deletingTransaction.amount.toFixed(2)}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setDeleteDialogOpen(false); setDeletingTransaction(null) }}>Cancel</Button>
+          <Button 
+            onClick={confirmDeleteTransaction} 
+            variant="contained" 
+            color="error" 
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
