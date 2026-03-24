@@ -341,6 +341,15 @@ def delete_transaction(
             f"Goal progress will be reduced by ${transaction.amount:.2f}"
         )
 
+    # Handle foreign key constraints by deleting related category feedback first
+    from app import crud
+    feedback_records = crud.category_feedback.get_by_transaction(db, transaction_id=transaction.id)
+    if feedback_records:
+        logger.info(f"Deleting {len(feedback_records)} category feedback records for transaction {transaction.id}")
+        for feedback in feedback_records:
+            db.delete(feedback)
+        db.commit()
+
     deleted_transaction = crud.transaction.remove(db, id=transaction.id)
     logger.info(f"User {transaction.user_id} successfully deleted transaction {transaction.id}")
     return schemas.TransactionRead.model_validate(deleted_transaction)

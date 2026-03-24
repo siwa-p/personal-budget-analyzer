@@ -506,7 +506,8 @@ function Transactions() {
       const response = await fetch(`${apiUrl}/api/v1/transactions/${deletingTransaction.id}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       })
 

@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
@@ -8,6 +9,10 @@ from app.schemas.category_feedback import CategoryFeedbackCreate, CategoryFeedba
 class CrudCategoryFeedback(CRUDBase[CategoryFeedback, CategoryFeedbackCreate, CategoryFeedbackRead]):
     def __init__(self):
         super().__init__(CategoryFeedback)
+
+    def get_by_transaction(self, db: Session, *, transaction_id: int) -> list[CategoryFeedback]:
+        stmt = select(CategoryFeedback).where(CategoryFeedback.transaction_id == transaction_id)
+        return list(db.execute(stmt).scalars().all())
 
     def create(self, db: Session, *, obj_in: CategoryFeedbackCreate, user_id: int) -> CategoryFeedback:
         is_correction = (
