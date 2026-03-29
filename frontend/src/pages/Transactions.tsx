@@ -922,17 +922,24 @@ function Transactions() {
             Are you sure you want to delete this transaction?
           </Typography>
           {deletingTransaction && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-              <Typography variant="body2">
+            <Box sx={{ 
+              mt: 2, 
+              p: 2, 
+              bgcolor: 'background.paper', 
+              border: 1, 
+              borderColor: 'divider',
+              borderRadius: 1 
+            }}>
+              <Typography variant="body2" color="text.primary">
                 <strong>Date:</strong> {deletingTransaction.transaction_date}
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 <strong>Description:</strong> {deletingTransaction.description || '—'}
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 <strong>Category:</strong> {categories.find((c) => c.id === deletingTransaction.category_id)?.name || deletingTransaction.category_id}
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 <strong>Amount:</strong> ${deletingTransaction.amount.toFixed(2)}
               </Typography>
             </Box>
