@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Route, Routes, useNavigate } from 'react-router-dom'
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Box, CssBaseline } from '@mui/material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import Dashboard from './pages/Dashboard'
@@ -22,6 +22,7 @@ function App() {
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>(
     () => (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   )
+  const location = useLocation()
   const [hasToken, setHasToken] = useState(Boolean(localStorage.getItem('access_token')))
   const [sidebarOpen, setSidebarOpen] = useState(
     () => localStorage.getItem('sidebar_open') !== 'false'
@@ -75,7 +76,11 @@ function App() {
       .catch(() => {})
   }, [])
 
-  // Keep hasToken in sync when login sets it externally
+  // Keep hasToken in sync on route changes (same tab) and cross-tab storage events
+  useEffect(() => {
+    setHasToken(Boolean(localStorage.getItem('access_token')))
+  }, [location.pathname])
+
   useEffect(() => {
     const onStorage = () => setHasToken(Boolean(localStorage.getItem('access_token')))
     window.addEventListener('storage', onStorage)
