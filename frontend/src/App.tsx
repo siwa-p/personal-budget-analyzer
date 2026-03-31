@@ -23,6 +23,7 @@ function App() {
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>(
     () => (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   )
+  const location = useLocation()
   const [hasToken, setHasToken] = useState(Boolean(localStorage.getItem('access_token')))
   const [sidebarOpen, setSidebarOpen] = useState(
     () => localStorage.getItem('sidebar_open') !== 'false'
@@ -76,12 +77,11 @@ function App() {
       .catch(() => {})
   }, [])
 
-  // Re-check token on every route change (same tab — e.g. after login/logout)
+  // Keep hasToken in sync on route changes (same tab) and cross-tab storage events
   useEffect(() => {
     setHasToken(Boolean(localStorage.getItem('access_token')))
   }, [location.pathname])
 
-  // Keep hasToken in sync for cross-tab changes
   useEffect(() => {
     const onStorage = () => setHasToken(Boolean(localStorage.getItem('access_token')))
     window.addEventListener('storage', onStorage)

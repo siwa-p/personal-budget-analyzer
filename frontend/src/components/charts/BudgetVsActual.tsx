@@ -150,7 +150,7 @@ function BudgetVsActual({ token }: BudgetVsActualProps) {
             labelId="budget-month-label"
             label="Month"
             value={selectedValue}
-            onChange={e => {
+            onChange={(e: { target: { value: string } }) => {
               const [year, month] = e.target.value.split('-').map(Number)
               setSelectedMonth({ year, month })
             }}
@@ -196,7 +196,9 @@ function BudgetVsActual({ token }: BudgetVsActualProps) {
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
             <XAxis
               dataKey="name"
-              tick={{ fill: axisColor, fontSize: 11, angle: -35, textAnchor: 'end' }}
+              angle={-35}
+              textAnchor="end"
+              tick={{ fill: axisColor, fontSize: 11 }}
               axisLine={{ stroke: gridColor }}
               tickLine={false}
               interval={0}
@@ -240,7 +242,7 @@ function BudgetVsActual({ token }: BudgetVsActualProps) {
             />
             <Bar dataKey="budget" name="budget" fill="#4e9af1" radius={[4, 4, 0, 0]} />
             <Bar dataKey="actual" name="actual" radius={[4, 4, 0, 0]}>
-              {chartData.map((entry, index) => (
+              {chartData.map((entry: BudgetDataPoint, index: number) => (
                 <Cell
                   key={index}
                   fill={entry.actual > entry.budget ? '#e74c3c' : '#2ecc71'}
