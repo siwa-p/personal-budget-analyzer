@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Route, Routes, useNavigate } from 'react-router-dom'
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Box, CssBaseline } from '@mui/material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import Dashboard from './pages/Dashboard'
@@ -19,6 +19,7 @@ import { ThemeContext } from './contexts/ThemeContext'
 
 function App() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>(
     () => (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   )
@@ -75,7 +76,12 @@ function App() {
       .catch(() => {})
   }, [])
 
-  // Keep hasToken in sync when login sets it externally
+  // Re-check token on every route change (same tab — e.g. after login/logout)
+  useEffect(() => {
+    setHasToken(Boolean(localStorage.getItem('access_token')))
+  }, [location.pathname])
+
+  // Keep hasToken in sync for cross-tab changes
   useEffect(() => {
     const onStorage = () => setHasToken(Boolean(localStorage.getItem('access_token')))
     window.addEventListener('storage', onStorage)
