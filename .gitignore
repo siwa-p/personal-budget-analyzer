@@ -18,3 +18,14 @@ postgres_data/
 redis_data/
 
 *.venv/
+
+ruff.toml
+
+logs/
+
+*.pytest_cache
+
+.mcp.json
+
+backend/mlruns/
+

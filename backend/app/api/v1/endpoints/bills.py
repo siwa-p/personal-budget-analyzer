@@ -1,24 +1,23 @@
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
 from app.api import deps
+from app.api.deps import CurrentUser, DbSession
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
 router = APIRouter()
 
 
-@router.get("/", response_model=List[schemas.BillRead])
+@router.get("/", response_model=list[schemas.BillRead])
 def read_bills(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     skip: int = 0,
     limit: int = 100,
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> List[schemas.BillRead]:
+    current_user: CurrentUser,
+) -> list[schemas.BillRead]:
     logger.info(f"User {current_user.id} is retrieving bills")
     bills = crud.bill.get_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
     return [schemas.BillRead.model_validate(bill) for bill in bills]
@@ -27,9 +26,9 @@ def read_bills(
 @router.post("/", response_model=schemas.BillRead, status_code=status.HTTP_201_CREATED)
 def create_bill(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     bill_in: schemas.BillCreate,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    current_user: CurrentUser,
 ) -> schemas.BillRead:
     logger.info(
         f"User {current_user.id} is creating a new bill - "
@@ -57,75 +56,43 @@ def create_bill(
 @router.get("/{bill_id}", response_model=schemas.BillRead)
 def read_bill(
     *,
-    db: Session = Depends(deps.get_db),
-    bill_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    bill: models.Bill = Depends(deps.get_user_bill),
 ) -> schemas.BillRead:
-    bill = crud.bill.get(db, id=bill_id)
-    if not bill:
-        logger.warning(f"User {current_user.id} attempted to access non-existent bill {bill_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bill not found")
-
-    if bill.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized access to bill {bill_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this bill")
-
     return schemas.BillRead.model_validate(bill)
 
 
 @router.put("/{bill_id}", response_model=schemas.BillRead)
 def update_bill(
     *,
-    db: Session = Depends(deps.get_db),
-    bill_id: int,
+    db: DbSession,
+    bill: models.Bill = Depends(deps.get_user_bill),
     bill_in: schemas.BillUpdate,
-    current_user: models.User = Depends(deps.get_current_active_user),
 ) -> schemas.BillRead:
-    logger.info(f"User {current_user.id} is updating bill {bill_id}")
-
-    bill = crud.bill.get(db, id=bill_id)
-    if not bill:
-        logger.warning(f"User {current_user.id} attempted to update non-existent bill {bill_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bill not found")
-
-    if bill.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized update of bill {bill_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this bill")
-
+    logger.info(f"User {bill.user_id} is updating bill {bill.id}")
     bill = crud.bill.update(db, db_obj=bill, obj_in=bill_in)
-    logger.info(f"User {current_user.id} successfully updated bill {bill_id}")
+    logger.info(f"User {bill.user_id} successfully updated bill {bill.id}")
     return schemas.BillRead.model_validate(bill)
 
 
 @router.delete("/{bill_id}", response_model=schemas.BillRead)
 def delete_bill(
     *,
-    db: Session = Depends(deps.get_db),
-    bill_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    db: DbSession,
+    bill: models.Bill = Depends(deps.get_user_bill),
 ) -> schemas.BillRead:
-    logger.info(f"User {current_user.id} is deleting bill {bill_id}")
+    logger.info(f"User {bill.user_id} is deleting bill {bill.id}")
+    deleted_bill = crud.bill.remove(db, id=bill.id)
+    logger.info(f"User {bill.user_id} successfully deleted bill {bill.id}")
+    return schemas.BillRead.model_validate(deleted_bill)
 
-    bill = crud.bill.get(db, id=bill_id)
-    if not bill:
-        logger.warning(f"User {current_user.id} attempted to delete non-existent bill {bill_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bill not found")
 
-    if bill.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized deletion of bill {bill_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this bill")
-
-    bill = crud.bill.remove(db, id=bill_id)
-    logger.info(f"User {current_user.id} successfully deleted bill {bill_id}")
-    return schemas.BillRead.model_validate(bill)
-
-@router.get("/upcoming/", response_model=List[schemas.BillRead])
+@router.get("/upcoming/", response_model=list[schemas.BillRead])
 def read_upcoming_bills(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     days_ahead: int = 7,
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> List[schemas.BillRead]:
+    current_user: CurrentUser,
+) -> list[schemas.BillRead]:
     """Retrieve bills due in the next 'days_ahead' days"""
     logger.info(f"User {current_user.id} is retrieving bills due in the next {days_ahead} days")
     bills = crud.bill.get_upcoming_bills(
@@ -133,12 +100,13 @@ def read_upcoming_bills(
     )
     return [schemas.BillRead.model_validate(bill) for bill in bills]
 
-@router.get("/overdue/", response_model=List[schemas.BillRead])
+
+@router.get("/overdue/", response_model=list[schemas.BillRead])
 def read_overdue_bills(
     *,
-    db: Session = Depends(deps.get_db),
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> List[schemas.BillRead]:
+    db: DbSession,
+    current_user: CurrentUser,
+) -> list[schemas.BillRead]:
     """Retrieve bills that are overdue"""
     logger.info(f"User {current_user.id} is retrieving overdue bills")
     bills = crud.bill.get_overdue_bills(
@@ -146,27 +114,19 @@ def read_overdue_bills(
     )
     return [schemas.BillRead.model_validate(bill) for bill in bills]
 
+
 @router.post("/{bill_id}/mark-paid", response_model=schemas.BillRead)
 def mark_bill_as_paid(
     *,
-    db: Session = Depends(deps.get_db),
-    bill_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    db: DbSession,
+    bill: models.Bill = Depends(deps.get_user_bill),
 ) -> schemas.BillRead:
     """Mark a bill as paid by updating its last_paid_date to today.
     If the bill is recurring, automatically updates the due_date to the next occurrence."""
-    logger.info(f"User {current_user.id} is marking bill {bill_id} as paid")
-
-    bill = crud.bill.get(db, id=bill_id)
-    if not bill:
-        logger.warning(f"User {current_user.id} attempted to mark non-existent bill {bill_id} as paid")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bill not found")
-
-    if bill.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized action on bill {bill_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this bill")
+    logger.info(f"User {bill.user_id} is marking bill {bill.id} as paid")
 
     from datetime import datetime
+
     from dateutil.relativedelta import relativedelta
 
     update_data = {"last_paid_date": datetime.now().date()}
@@ -182,39 +142,30 @@ def mark_bill_as_paid(
         elif bill.recurrence == "yearly":
             next_due_date = bill.due_date + relativedelta(years=1)
         else:
-            logger.error(f"Bill {bill_id} has invalid recurrence pattern: {bill.recurrence}")
+            logger.error(f"Bill {bill.id} has invalid recurrence pattern: {bill.recurrence}")
             next_due_date = None
 
         if next_due_date:
             update_data["due_date"] = next_due_date
-            logger.info(f"Recurring bill {bill_id}: updating next due date to {next_due_date}")
+            logger.info(f"Recurring bill {bill.id}: updating next due date to {next_due_date}")
 
     bill_in = schemas.BillUpdate(**update_data)
     bill = crud.bill.update(db, db_obj=bill, obj_in=bill_in)
-    logger.info(f"User {current_user.id} successfully marked bill {bill_id} as paid")
+    logger.info(f"User {bill.user_id} successfully marked bill {bill.id} as paid")
     return schemas.BillRead.model_validate(bill)
+
 
 @router.post("/{bill_id}/next-due", response_model=schemas.BillRead)
 def get_next_due_bill(
     *,
-    db: Session = Depends(deps.get_db),
-    bill_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    db: DbSession,
+    bill: models.Bill = Depends(deps.get_user_bill),
 ) -> schemas.BillRead:
     """Get the next due date for a recurring bill"""
-    logger.info(f"User {current_user.id} is retrieving next due date for bill {bill_id}")
-
-    bill = crud.bill.get(db, id=bill_id)
-    if not bill:
-        logger.warning(f"User {current_user.id} attempted to access non-existent bill {bill_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bill not found")
-
-    if bill.user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted unauthorized access to bill {bill_id}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this bill")
+    logger.info(f"User {bill.user_id} is retrieving next due date for bill {bill.id}")
 
     if bill.recurrence == "none":
-        logger.info(f"Bill {bill_id} is not recurring; no next due date")
+        logger.info(f"Bill {bill.id} is not recurring; no next due date")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bill is not recurring")
 
     from dateutil.relativedelta import relativedelta
@@ -228,10 +179,10 @@ def get_next_due_bill(
     elif bill.recurrence == "yearly":
         next_due_date = bill.due_date + relativedelta(years=1)
     else:
-        logger.error(f"Bill {bill_id} has invalid recurrence pattern: {bill.recurrence}")
+        logger.error(f"Bill {bill.id} has invalid recurrence pattern: {bill.recurrence}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Invalid recurrence pattern")
 
     bill_in = schemas.BillUpdate(due_date=next_due_date)
     bill = crud.bill.update(db, db_obj=bill, obj_in=bill_in)
-    logger.info(f"User {current_user.id} successfully updated next due date for bill {bill_id} to {next_due_date}")
+    logger.info(f"User {bill.user_id} successfully updated next due date for bill {bill.id} to {next_due_date}")
     return schemas.BillRead.model_validate(bill)

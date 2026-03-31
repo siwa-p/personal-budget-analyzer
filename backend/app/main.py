@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -5,26 +7,27 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.logger_init import setup_logging
 from app.db.base import Base
-from app.db.session import engine, SessionLocal
-from app.db.init_db import init_db
+from app.db.init_db import init_db, init_superuser
+from app.db.session import engine, get_session
 
 logger = setup_logging()
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
-logger.info("Database tables created.")
 
-# Initialize database with predefined data
-db = SessionLocal()
-try:
-    init_db(db)
-finally:
-    db.close()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created.")
+    with get_session() as db:
+        init_db(db)
+        init_superuser(db)
+    yield
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan,
 )
 
 # Set up CORS
@@ -54,5 +57,5 @@ async def health_check():
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION
     }
-    
+
 app.include_router(api_router, prefix=settings.API_V1_STR)

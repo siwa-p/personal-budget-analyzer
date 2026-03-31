@@ -1,44 +1,44 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from typing import List
 from decimal import Decimal
+
+from fastapi import APIRouter, Depends, status
 
 from app import crud, models, schemas
 from app.api import deps
+from app.api.deps import CurrentUser, DbSession
+from app.core.logger_init import setup_logging
 
+logger = setup_logging()
 router = APIRouter()
 
 
 @router.post("/", response_model=schemas.BudgetResponse, status_code=status.HTTP_201_CREATED)
 def create_budget(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     budget_in: schemas.BudgetCreate,
-    current_user: models.User = Depends(deps.get_current_active_user)
+    current_user: CurrentUser
 ):
+    logger.info(f"User {current_user.id} is creating budget for {budget_in.year}/{budget_in.month}")
+
     # If category_id provided, verify it exists and belongs to user or is system category
     if budget_in.category_id:
-        category = crud.category.get(db, id=budget_in.category_id)
-        if not category:
-            raise HTTPException(status_code=404, detail="Category not found")
-        if category.user_id and category.user_id != current_user.id:
-            raise HTTPException(
-                status_code=403,
-                detail="Cannot set budget for another user's category"
-            )
+        deps.validate_category_access(db, budget_in.category_id, current_user.id)
 
     budget = crud.budget.create(db, obj_in=budget_in, user_id=current_user.id)
+    logger.info(f"User {current_user.id} successfully created budget {budget.id}")
     return budget
 
 
-@router.get("/month", response_model=List[schemas.BudgetWithCategory])
+@router.get("/month", response_model=list[schemas.BudgetWithCategory])
 def get_monthly_budgets(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     year: int,
     month: int,
-    current_user: models.User = Depends(deps.get_current_active_user)
+    current_user: CurrentUser
 ):
+    logger.info(f"User {current_user.id} is retrieving budgets for {year}/{month}")
+
     budgets = crud.budget.get_budgets_for_month(
         db, user_id=current_user.id, year=year, month=month
     )
@@ -85,60 +85,34 @@ def get_monthly_budgets(
 @router.get("/{budget_id}", response_model=schemas.BudgetResponse)
 def get_budget(
     *,
-    db: Session = Depends(deps.get_db),
-    budget_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user)
+    budget: models.Budget = Depends(deps.get_user_budget),
 ):
     """Get a specific budget by ID"""
-    budget = crud.budget.get(db, id=budget_id)
-    if not budget:
-        raise HTTPException(status_code=404, detail="Budget not found")
-    if budget.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to view this budget"
-        )
     return budget
 
 
 @router.put("/{budget_id}", response_model=schemas.BudgetResponse)
 def update_budget(
     *,
-    db: Session = Depends(deps.get_db),
-    budget_id: int,
+    db: DbSession,
+    budget: models.Budget = Depends(deps.get_user_budget),
     budget_in: schemas.BudgetUpdate,
-    current_user: models.User = Depends(deps.get_current_active_user)
 ):
     """Update a budget amount"""
-    budget = crud.budget.get(db, id=budget_id)
-    if not budget:
-        raise HTTPException(status_code=404, detail="Budget not found")
-    if budget.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to update this budget"
-        )
-
+    logger.info(f"User {budget.user_id} is updating budget {budget.id}")
     budget = crud.budget.update(db, db_obj=budget, obj_in=budget_in)
+    logger.info(f"User {budget.user_id} successfully updated budget {budget.id}")
     return budget
 
 
 @router.delete("/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_budget(
     *,
-    db: Session = Depends(deps.get_db),
-    budget_id: int,
-    current_user: models.User = Depends(deps.get_current_active_user)
+    db: DbSession,
+    budget: models.Budget = Depends(deps.get_user_budget),
 ):
     """Delete a budget"""
-    budget = crud.budget.get(db, id=budget_id)
-    if not budget:
-        raise HTTPException(status_code=404, detail="Budget not found")
-    if budget.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to delete this budget"
-        )
-
-    crud.budget.remove(db, id=budget_id)
+    logger.info(f"User {budget.user_id} is deleting budget {budget.id}")
+    crud.budget.remove(db, id=budget.id)
+    logger.info(f"User {budget.user_id} successfully deleted budget {budget.id}")
     return None

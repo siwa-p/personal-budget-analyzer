@@ -1,18 +1,16 @@
+from sqlalchemy import and_, extract, func, select
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func, select, extract
+
+from app.crud.base import CRUDBase
 from app.models.budget import Budget
-from app.schemas.budget import BudgetCreate, BudgetUpdate
 from app.models.category import Category
 from app.models.transaction import Transactions
+from app.schemas.budget import BudgetCreate, BudgetUpdate
 
-class CRUDBudget:
-    def get(self, db: Session, id: int) -> Budget:
-        stmt = select(Budget).where(Budget.id == id)
-        return db.execute(stmt).scalar_one_or_none()
 
-    def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> list[Budget]:
-        stmt = select(Budget).offset(skip).limit(limit)
-        return list(db.execute(stmt).scalars().all())
+class CRUDBudget(CRUDBase[Budget, BudgetCreate, BudgetUpdate]):
+    def __init__(self):
+        super().__init__(Budget)
 
     def get_budgets_for_month(
         self, db: Session,
@@ -47,11 +45,7 @@ class CRUDBudget:
 
         if existing:
             # Update existing budget
-            self.update(
-                db,
-                db_obj=existing[0],
-                obj_in=obj_in
-            )
+            self.update(db, db_obj=existing[0], obj_in=obj_in)
             return existing[0]
 
         # Create new budget
@@ -66,21 +60,6 @@ class CRUDBudget:
         db.commit()
         db.refresh(db_obj)
         return db_obj
-
-    def update(self, db: Session, *, db_obj: Budget, obj_in: BudgetUpdate) -> Budget:
-        for field, value in obj_in.dict(exclude_unset=True).items():
-            setattr(db_obj, field, value)
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
-
-    def remove(self, db: Session, *, id: int) -> Budget:
-        """Delete a budget"""
-        obj = db.get(Budget, id)
-        db.delete(obj)
-        db.commit()
-        return obj
 
     def get_spending_for_budget(
         self, db: Session, *, user_id: int, year: int, month: int, category_id: int | None = None

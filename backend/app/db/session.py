@@ -1,5 +1,9 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
+
 from app.core.config import settings
 from app.core.logger_init import setup_logging
 
@@ -10,9 +14,14 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
     db = SessionLocal()
-    logger.info("Database session created.")
+    with db as session:
+        yield session
+
+
+@contextmanager
+def get_session() -> Iterator[Session]:
+    db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-        logger.info("Database session closed.")

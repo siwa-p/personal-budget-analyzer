@@ -1,10 +1,8 @@
-from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException, status
 
-from app import crud, models, schemas
-from app.api import deps
+from app import crud, schemas
+from app.api.deps import CurrentSuperuser, CurrentUser, DbSession
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
@@ -12,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/me", response_model=schemas.UserRead)
-def read_users_me(current_user: models.User = Depends(deps.get_current_active_user)) -> schemas.UserRead:
+def read_users_me(current_user: CurrentUser) -> schemas.UserRead:
     logger.info(f"User {current_user.id} accessed their profile")
     return schemas.UserRead.model_validate(current_user)
 
@@ -20,9 +18,9 @@ def read_users_me(current_user: models.User = Depends(deps.get_current_active_us
 @router.put("/me", response_model=schemas.UserRead)
 def update_users_me(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     user_in: schemas.UserUpdate,
-    current_user: models.User = Depends(deps.get_current_active_user),
+    current_user: CurrentUser,
 ) -> schemas.UserRead:
     logger.info(f"User {current_user.id} is updating their profile")
     update_data = user_in.model_dump(exclude_unset=True, exclude={"is_active", "is_superuser"})
@@ -44,14 +42,14 @@ def update_users_me(
     return schemas.UserRead.model_validate(user)
 
 
-@router.get("/", response_model=List[schemas.UserRead])
+@router.get("/", response_model=list[schemas.UserRead])
 def read_users(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     skip: int = 0,
     limit: int = 100,
-    current_user: models.User = Depends(deps.get_current_active_superuser),
-) -> List[schemas.UserRead]:
+    current_user: CurrentSuperuser,
+) -> list[schemas.UserRead]:
     logger.info(f"Superuser {current_user.id} is retrieving user list")
     users = crud.user.get_multi(db, skip=skip, limit=limit)
     return [schemas.UserRead.model_validate(user) for user in users]
@@ -60,9 +58,9 @@ def read_users(
 @router.post("/", response_model=schemas.UserRead, status_code=status.HTTP_201_CREATED)
 def create_user(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     user_in: schemas.UserCreate,
-    current_user: models.User = Depends(deps.get_current_active_superuser),
+    current_user: CurrentSuperuser,
 ) -> schemas.UserRead:
     logger.info(
         f"Superuser {current_user.id} is creating a new user - "
@@ -89,9 +87,9 @@ def create_user(
 @router.get("/{user_id}", response_model=schemas.UserRead)
 def read_user_by_id(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     user_id: int,
-    current_user: models.User = Depends(deps.get_current_active_superuser),
+    current_user: CurrentSuperuser,
 ) -> schemas.UserRead:
     logger.info(f"Superuser {current_user.id} is retrieving user {user_id}")
 
@@ -106,10 +104,10 @@ def read_user_by_id(
 @router.put("/{user_id}", response_model=schemas.UserRead)
 def update_user(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     user_id: int,
     user_in: schemas.UserUpdate,
-    current_user: models.User = Depends(deps.get_current_active_superuser),
+    current_user: CurrentSuperuser,
 ) -> schemas.UserRead:
     logger.info(f"Superuser {current_user.id} is updating user {user_id}")
 
@@ -142,9 +140,9 @@ def update_user(
 @router.delete("/{user_id}", response_model=schemas.UserRead)
 def delete_user(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     user_id: int,
-    current_user: models.User = Depends(deps.get_current_active_superuser),
+    current_user: CurrentSuperuser,
 ) -> schemas.UserRead:
     logger.info(f"Superuser {current_user.id} is deleting user {user_id}")
 

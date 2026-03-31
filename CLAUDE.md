@@ -6,6 +6,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Personal Budget Analyzer is a full-stack budget tracking application with ML-powered expense categorization. The application is designed to integrate with external services (Plaid for banking, OCR for receipts) and includes async job processing capabilities.
 
+## Current Status (~70% Complete)
+
+### Fully Implemented
+- **Auth**: JWT login/register, password reset via email (Celery async task)
+- **Users**: Profile management, light/dark theme persistence
+- **Transactions**: Full CRUD with filters (date, category, type); receipt scanning endpoint
+- **Categories**: Hierarchical categories, 20 system defaults seeded on init, soft-delete
+- **Budgets / Bills / Goals**: Full CRUD with amount validation and progress tracking
+- **Analytics**: Category distribution + monthly spending trend endpoints
+- **ML categorization**: TF-IDF + Multinomial Naive Bayes with keyword-rule fallback; L1 (in-memory) + L2 (Redis 24h) caching; user correction feedback with 3x weighting
+- **OCR**: Donut model (naver-clova-ix/donut-base-finetuned-cord-v2) extracts total, tax, subtotal, dates; cross-validates totals
+- **Frontend pages**: Login, Register, ForgotPassword, ResetPassword, Transactions (with receipt upload + ML suggestion), Analytics, Profile
+- **Docker**: All 5 services running (db, redis, backend, celery_worker, frontend)
+
+### Partially Implemented
+- Frontend polish / responsive design (pages functional, not refined)
+- Analytics charts exist but could be enhanced
+- Redux Toolkit is installed but unused — state is managed via `useState` + `localStorage`
+
+### Not Yet Implemented
+- Plaid API (config wired, no integration code)
+- Google Cloud Vision (config present, Donut model used instead)
+- PDF export (reportlab installed, no endpoint)
+- Alembic migrations (currently `Base.metadata.create_all()` on startup)
+- Role-based access control (superuser flag exists, not enforced)
+- Test coverage (only 5 unit tests for ML service)
+- Rate limiting
+
 ## Constraints and Rules
 
 ### Database Migrations
@@ -125,6 +153,13 @@ docker-compose logs -f backend        # Backend only
 docker-compose logs -f frontend       # Frontend only
 docker-compose logs -f db             # Database only
 ```
+
+### Application Logs (structured JSON)
+The backend writes structured JSON logs to `backend/logs/application.log` (also mirrored to stdout/docker logs).
+- **Format**: `{"time": "...", "logger": "json_logger", "level": "INFO|ERROR", "message": "...", "line": N}`
+- **Exceptions**: included as `"exception"` field when present
+- **Rotation**: 2 MB max, 1 backup (`application.log.1`)
+- Check this file directly to debug runtime errors without needing docker logs.
 
 ### Database Access
 ```bash

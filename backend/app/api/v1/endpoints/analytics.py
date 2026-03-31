@@ -1,24 +1,55 @@
-from typing import List
-from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
-from sqlalchemy import extract, func, select
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
+import io
 
-from app import models, schemas
-from app.api import deps
+import pendulum
+from fastapi import APIRouter, HTTPException, Query, status
+from sqlalchemy import extract, func, select
+from fastapi.responses import StreamingResponse
 
+from app import models
+from app.api.deps import CurrentUser, DbSession
+from app.core.logger_init import setup_logging
+from app.services.ml_service import compare_classifiers
+from app.services.report_service import generate_spending_report_pdf_bytes
+
+logger = setup_logging()
 router = APIRouter()
+
+
+@router.get("/ml-compare", status_code=status.HTTP_200_OK)
+def get_ml_compare(*, db: DbSession, current_user: CurrentUser):
+    """Compare Logistic Regression vs LinearSVM with RandomizedSearchCV tuning and K-fold CV.
+
+    Logs per-fold train_loss and test_loss to MLflow. Expect 20-60s depending on data size.
+    """
+    result = compare_classifiers(db, current_user.id)
+    if "error" in result:
+        logger.warning(f"User {current_user.id}: ml-compare skipped — {result['error']}")
+    else:
+        for clf_name, metrics in result.get("results", {}).items():
+            logger.info(
+                f"User {current_user.id}: [{clf_name}] "
+                f"train_loss={metrics['train_loss']:.4f}  "
+                f"test_loss={metrics['test_loss']:.4f}  "
+                f"f1_macro={metrics['test_f1_macro']:.4f}  "
+                f"tune_f1={metrics['tune_f1_macro']:.4f}"
+            )
+    return result
 
 
 @router.get("/category-distribution", status_code=status.HTTP_200_OK)
 def get_category_distribution(
     *,
-    db: Session = Depends(deps.get_db),
-    start_date: datetime = datetime.now().replace(day=1, month=1),
-    end_date: datetime = datetime.now(),
-    current_user: models.User = Depends(deps.get_current_active_user)
+    db: DbSession,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    current_user: CurrentUser
 ):
+    if start_date is None:
+        start_date = pendulum.now().start_of("year")
+    if end_date is None:
+        end_date = pendulum.now()
+
     stmt = (
         select(
             models.Category.name.label("category_name"),
@@ -27,6 +58,7 @@ def get_category_distribution(
         .join(models.Category, models.Transactions.category_id == models.Category.id)
         .where(
             models.Transactions.user_id == current_user.id,
+            models.Category.type == "expense",
             models.Transactions.transaction_date >= start_date,
             models.Transactions.transaction_date <= end_date
         )
@@ -51,19 +83,15 @@ def get_category_distribution(
 @router.get("/monthly-spending-trend", status_code=status.HTTP_200_OK)
 def get_monthly_spending_trend(
     *,
-    db: Session = Depends(deps.get_db),
+    db: DbSession,
     start_year: int,
     start_month: int,
     end_year: int,
     end_month: int,
-    current_user: models.User = Depends(deps.get_current_active_user)
+    current_user: CurrentUser
 ):
-    start_date = datetime(start_year, start_month, 1)
-    # Get last day of end month
-    if end_month == 12:
-        end_date = datetime(end_year + 1, 1, 1) - relativedelta(days=1)
-    else:
-        end_date = datetime(end_year, end_month + 1, 1) - relativedelta(days=1)
+    start_date = pendulum.datetime(start_year, start_month, 1)
+    end_date = pendulum.datetime(end_year, end_month, 1).end_of("month")
 
     stmt = (
         select(
@@ -101,3 +129,59 @@ def get_monthly_spending_trend(
         ]
     }
     return result
+
+
+@router.get("/spending-report/pdf", response_class=StreamingResponse)
+def get_spending_report_pdf(
+    *,
+    db: DbSession,
+    report_type: str = Query(pattern="^(monthly|yearly)$"),
+    start_year: int | None = None,
+    start_month: int | None = None,
+    end_year: int | None = None,
+    end_month: int | None = None,
+    year: int | None = None,
+    current_user: CurrentUser,
+) -> StreamingResponse:
+    """
+    Download a PDF with spending summary + charts.
+
+    report_type:
+      - monthly: provide start_year/start_month/end_year/end_month
+      - yearly: provide year
+    """
+
+    if report_type == "monthly":
+        missing = [name for name, val in (
+            ("start_year", start_year),
+            ("start_month", start_month),
+            ("end_year", end_year),
+            ("end_month", end_month),
+        ) if val is None]
+        if missing:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Missing parameters for monthly report: {', '.join(missing)}")
+
+    if report_type == "yearly" and year is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Missing parameter 'year' for yearly report")
+
+    pdf_bytes = generate_spending_report_pdf_bytes(
+        db=db,
+        user_id=current_user.id,
+        report_type=report_type,
+        start_year=start_year,
+        start_month=start_month,
+        end_year=end_year,
+        end_month=end_month,
+        year=year,
+    )
+
+    if report_type == "monthly":
+        file_name = f"spending-report-monthly-{start_year}-{start_month}-to-{end_year}-{end_month}.pdf"
+    else:
+        file_name = f"spending-report-yearly-{year}.pdf"
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+    )

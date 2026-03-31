@@ -38,6 +38,7 @@ ENV/
 *~
 
 # Testing
+tests/
 .pytest_cache/
 .coverage
 htmlcov/
@@ -50,3 +51,4 @@ htmlcov/
 *.log
 
 *.venv/
+test_endpoints.sh

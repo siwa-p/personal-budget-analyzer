@@ -1,29 +1,23 @@
-from typing import Any, Dict, List, Optional, Union
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.crud.base import CRUDBase
 from app.models.goal import Goal
 from app.models.transaction import Transactions
 from app.schemas.goal import GoalCreate, GoalUpdate
 
 
-class CRUDGoal:
-    def get(self, db: Session, id: int) -> Optional[Goal]:
-        stmt = select(Goal).where(Goal.id == id)
-        return db.execute(stmt).scalar_one_or_none()
+class CRUDGoal(CRUDBase[Goal, GoalCreate, GoalUpdate]):
+    def __init__(self):
+        super().__init__(Goal)
 
-    def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Goal]:
-        stmt = select(Goal).offset(skip).limit(limit)
-        return list(db.execute(stmt).scalars().all())
-
-    def get_by_user(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> List[Goal]:
+    def get_by_user(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> list[Goal]:
         stmt = select(Goal).where(Goal.user_id == user_id).offset(skip).limit(limit)
         return list(db.execute(stmt).scalars().all())
 
     def get_by_status(
         self, db: Session, *, user_id: int, status: str, skip: int = 0, limit: int = 100
-    ) -> List[Goal]:
+    ) -> list[Goal]:
         stmt = (
             select(Goal)
             .where(Goal.user_id == user_id, Goal.status == status)
@@ -45,24 +39,7 @@ class CRUDGoal:
         db.refresh(db_obj)
         return db_obj
 
-    def update(self, db: Session, *, db_obj: Goal, obj_in: Union[GoalUpdate, Dict[str, Any]]) -> Goal:
-        update_data = obj_in if isinstance(obj_in, dict) else obj_in.model_dump(exclude_unset=True)
-
-        for field, value in update_data.items():
-            setattr(db_obj, field, value)
-
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
-
-    def remove(self, db: Session, *, id: int) -> Goal:
-        obj = db.get(Goal, id)
-        db.delete(obj)
-        db.commit()
-        return obj
-
-    def calculate_progress(self, db: Session, *, goal_id: int) -> Dict[str, float]:
+    def calculate_progress(self, db: Session, *, goal_id: int) -> dict[str, float]:
         """Calculate progress for a goal based on linked transactions"""
         # Sum all transaction amounts linked to this goal
         stmt = select(func.sum(Transactions.amount)).where(Transactions.goal_id == goal_id)

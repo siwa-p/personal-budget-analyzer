@@ -1,4 +1,4 @@
-version: '3.8'
+# version: '3.8'
 
 services:
   # PostgreSQL Database
@@ -43,8 +43,10 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - hf_cache:/root/.cache/huggingface
+      - mlflow_data:/mlflow
     env_file:
-      - .env
+      - ./backend/.env
     depends_on:
       db:
         condition: service_healthy
@@ -58,14 +60,25 @@ services:
       context: .
       dockerfile: docker/backend.Dockerfile
     container_name: budget_analyzer_celery
-    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    command: celery -A app.core.celery_app.celery_app worker --loglevel=info --uid=nobody
     volumes:
       - ./backend:/app
     env_file:
-      - .env
+      - ./backend/.env
     depends_on:
       redis:
         condition: service_healthy
+    restart: unless-stopped
+
+  # MLflow Tracking Server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: budget_analyzer_mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    command: mlflow server --dev --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:////mlflow/mlflow.db --default-artifact-root /mlflow/artifacts
     restart: unless-stopped
 
   # React Frontend
@@ -88,3 +101,5 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  hf_cache:
+  mlflow_data:

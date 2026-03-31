@@ -1,5 +1,5 @@
+
 from pydantic_settings import BaseSettings
-from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -14,14 +14,14 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/0"
 
     # Security
-    SECRET_KEY: str = "your-secret-key-change-this-in-production"
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
-    FIRST_SUPERUSER_EMAIL: str = "admin@example.com"
-    FIRST_SUPERUSER_PASSWORD: str = "admin123"
-    FIRST_SUPERUSER_USERNAME: str = "admin"
-    FIRST_SUPERUSER_FULL_NAME: Optional[str] = "Administrator"
+    FIRST_SUPERUSER_EMAIL: str
+    FIRST_SUPERUSER_PASSWORD: str
+    FIRST_SUPERUSER_USERNAME: str
+    FIRST_SUPERUSER_FULL_NAME: str | None = None
 
     # CORS
     BACKEND_CORS_ORIGINS: list = ["http://localhost:5173", "http://localhost:3000"]
@@ -31,22 +31,25 @@ class Settings(BaseSettings):
     PASSWORD_RESET_PATH: str = "/reset-password"
 
     # Email (Resend SMTP)
-    MAIL_FROM: Optional[str] = None
-    MAIL_FROM_NAME: Optional[str] = None
-    MAIL_USERNAME: Optional[str] = None
-    MAIL_PASSWORD: Optional[str] = None
+    MAIL_FROM: str | None = None
+    MAIL_FROM_NAME: str | None = None
+    MAIL_USERNAME: str | None = None
+    MAIL_PASSWORD: str | None = None
     MAIL_SERVER: str = "smtp.resend.com"
     MAIL_PORT: int = 465
     MAIL_STARTTLS: bool = False
     MAIL_SSL_TLS: bool = True
     MAIL_TIMEOUT: int = 30
 
+    # MLflow
+    MLFLOW_TRACKING_URI: str = "sqlite:////mlflow/mlflow.db"
+
     # Optional External APIs
-    PLAID_CLIENT_ID: Optional[str] = None
-    PLAID_SECRET: Optional[str] = None
+    PLAID_CLIENT_ID: str | None = None
+    PLAID_SECRET: str | None = None
     PLAID_ENV: str = "sandbox"
 
-    GOOGLE_CLOUD_VISION_API_KEY: Optional[str] = None
+    GOOGLE_CLOUD_VISION_API_KEY: str | None = None
 
     class Config:
         env_file = ".env"

@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -27,7 +26,7 @@ class CRUDPasswordReset:
         db.refresh(db_obj)
         return db_obj
 
-    def get_valid_token(self, db: Session, *, token_hash: str) -> Optional[PasswordResetToken]:
+    def get_valid_token(self, db: Session, *, token_hash: str) -> PasswordResetToken | None:
         now = datetime.now(timezone.utc)
         stmt = (
             select(PasswordResetToken)

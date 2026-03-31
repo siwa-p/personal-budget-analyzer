@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
+
 from app import crud, schemas
+from app.core.config import settings
 from app.core.logger_init import setup_logging
 
 logger = setup_logging()
@@ -149,6 +151,23 @@ PREDEFINED_CATEGORIES = [
 ]
 
 
+def init_superuser(db: Session) -> None:
+    user = crud.user.get_by_email(db, email=settings.FIRST_SUPERUSER_EMAIL.lower())
+    if user:
+        logger.info(f"Superuser '{settings.FIRST_SUPERUSER_EMAIL}' already exists. Skipping creation.")
+        return
+    user_in = schemas.UserCreate(
+        email=settings.FIRST_SUPERUSER_EMAIL,
+        username=settings.FIRST_SUPERUSER_USERNAME,
+        full_name=settings.FIRST_SUPERUSER_FULL_NAME,
+        password=settings.FIRST_SUPERUSER_PASSWORD,
+        is_active=True,
+        is_superuser=True,
+    )
+    crud.user.create(db, obj_in=user_in)
+    logger.info(f"Superuser '{settings.FIRST_SUPERUSER_EMAIL}' created successfully.")
+
+
 def init_db(db: Session) -> None:
     logger.info("Starting database initialization...")
 
@@ -165,6 +184,6 @@ def init_db(db: Session) -> None:
             category = crud.category.create(db, obj_in=category_in, user_id=None)
             logger.info(f"Created system category: {cat_data['name']} (ID: {category.id})")
         except Exception as e:
-            logger.error(f"Error creating category '{cat_data['name']}': {str(e)}")
+            logger.error(f"Error creating category '{cat_data['name']}': {e!s}")
 
     logger.info("Database initialization completed!")

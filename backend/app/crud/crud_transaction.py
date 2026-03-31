@@ -1,25 +1,20 @@
 from datetime import date
-from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.crud.base import CRUDBase
 from app.models.transaction import Transactions
 from app.schemas.transaction import TransactionCreate, TransactionUpdate
 
 
-class CRUDTransaction:
-    def get(self, db: Session, id: int) -> Optional[Transactions]:
-        stmt = select(Transactions).where(Transactions.id == id)
-        return db.execute(stmt).scalar_one_or_none()
-
-    def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Transactions]:
-        stmt = select(Transactions).offset(skip).limit(limit)
-        return list(db.execute(stmt).scalars().all())
+class CRUDTransaction(CRUDBase[Transactions, TransactionCreate, TransactionUpdate]):
+    def __init__(self):
+        super().__init__(Transactions)
 
     def get_by_user(
         self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[Transactions]:
+    ) -> list[Transactions]:
         stmt = (
             select(Transactions)
             .where(Transactions.user_id == user_id)
@@ -31,7 +26,7 @@ class CRUDTransaction:
 
     def get_by_category(
         self, db: Session, *, user_id: int, category_id: int, skip: int = 0, limit: int = 100
-    ) -> List[Transactions]:
+    ) -> list[Transactions]:
         stmt = (
             select(Transactions)
             .where(Transactions.user_id == user_id, Transactions.category_id == category_id)
@@ -50,7 +45,7 @@ class CRUDTransaction:
         end_date: date,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Transactions]:
+    ) -> list[Transactions]:
         stmt = (
             select(Transactions)
             .where(
@@ -66,7 +61,7 @@ class CRUDTransaction:
 
     def get_by_type(
         self, db: Session, *, user_id: int, transaction_type: str, skip: int = 0, limit: int = 100
-    ) -> List[Transactions]:
+    ) -> list[Transactions]:
         stmt = (
             select(Transactions)
             .where(Transactions.user_id == user_id, Transactions.transaction_type == transaction_type)
@@ -74,6 +69,30 @@ class CRUDTransaction:
             .offset(skip)
             .limit(limit)
         )
+        return list(db.execute(stmt).scalars().all())
+
+    def get_filtered_for_export(
+        self,
+        db: Session,
+        *,
+        user_id: int,
+        category_id: int | None = None,
+        transaction_type: str | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[Transactions]:
+        stmt = select(Transactions).where(Transactions.user_id == user_id)
+
+        if category_id is not None:
+            stmt = stmt.where(Transactions.category_id == category_id)
+        if transaction_type is not None:
+            stmt = stmt.where(Transactions.transaction_type == transaction_type)
+        if start_date is not None:
+            stmt = stmt.where(Transactions.transaction_date >= start_date)
+        if end_date is not None:
+            stmt = stmt.where(Transactions.transaction_date <= end_date)
+
+        stmt = stmt.order_by(Transactions.transaction_date.desc())
         return list(db.execute(stmt).scalars().all())
 
     def create(self, db: Session, *, obj_in: TransactionCreate, user_id: int) -> Transactions:
@@ -92,25 +111,6 @@ class CRUDTransaction:
         db.commit()
         db.refresh(db_obj)
         return db_obj
-
-    def update(
-        self, db: Session, *, db_obj: Transactions, obj_in: Union[TransactionUpdate, Dict[str, Any]]
-    ) -> Transactions:
-        update_data = obj_in if isinstance(obj_in, dict) else obj_in.model_dump(exclude_unset=True)
-
-        for field, value in update_data.items():
-            setattr(db_obj, field, value)
-
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
-
-    def remove(self, db: Session, *, id: int) -> Transactions:
-        obj = db.get(Transactions, id)
-        db.delete(obj)
-        db.commit()
-        return obj
 
 
 transaction = CRUDTransaction()
