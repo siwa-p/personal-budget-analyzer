@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import { Alert, Box, Button, Container, TextField, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
+import { extractApiError } from '../utils/api'
 
 type ForgotPasswordValues = {
     email: string
@@ -30,7 +31,7 @@ function ForgotPassword() {
 
             if (!response.ok) {
                 const data = await response.json().catch(() => null)
-                const message = data?.detail || 'Failed to send reset email.'
+                const message = extractApiError(data, 'Failed to send reset email.')
                 throw new Error(message)
             }
 

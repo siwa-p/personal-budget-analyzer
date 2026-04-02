@@ -17,8 +17,11 @@ import {
 } from '@mui/material'
 import {
   AccountBalance as AccountBalanceIcon,
+  BarChart as BarChartIcon,
   EventNote as EventNoteIcon,
   Flag as FlagIcon,
+  Receipt as ReceiptIcon,
+  TrackChanges as TrackChangesIcon,
   TrendingDown as TrendingDownIcon,
 } from '@mui/icons-material'
 
@@ -79,78 +82,90 @@ function formatDate(dateStr: string) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+const FEATURES = [
+  { icon: <ReceiptIcon fontSize="large" />, title: 'Transaction Tracking', desc: 'Log income and expenses with automatic ML-powered categorization.' },
+  { icon: <BarChartIcon fontSize="large" />, title: 'Spending Analytics', desc: 'Visualize where your money goes with monthly trends and category breakdowns.' },
+  { icon: <EventNoteIcon fontSize="large" />, title: 'Bill Management', desc: 'Track recurring bills and get reminders before due dates.' },
+  { icon: <TrackChangesIcon fontSize="large" />, title: 'Budget Control', desc: 'Set monthly budgets per category and track progress in real time.' },
+  { icon: <FlagIcon fontSize="large" />, title: 'Savings Goals', desc: 'Define goals with deadlines and watch your progress grow.' },
+  { icon: <AccountBalanceIcon fontSize="large" />, title: 'Financial Overview', desc: 'See your full financial picture at a glance from the dashboard.' },
+]
+
 // Landing page for unauthenticated users
 function LandingPage() {
-  const [isConnected, setIsConnected] = useState(false)
-
-  useEffect(() => {
-    fetch(`${apiUrl}/health`)
-      .then((r) => setIsConnected(r.ok))
-      .catch(() => setIsConnected(false))
-  }, [])
-
   return (
-    <Box sx={{ background: 'linear-gradient(180deg, #449454 0%, #3a7b46 45%, #2f5f37 100%)', color: 'white' }}>
-      <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
-        <Typography
-          variant="h3"
-          sx={{ fontWeight: 700, letterSpacing: 0.5, fontFamily: '"Trebuchet MS", Arial, sans-serif' }}
-        >
-          Ledgr
-        </Typography>
-        <Typography sx={{ mt: 1, fontStyle: 'italic', fontSize: '1.1rem', color: 'rgba(255,255,255,0.85)' }}>
-          One Small Step for Your Finances
-          <br />
-          One Giant Leap for your Freedom
-        </Typography>
-        <Box sx={{ mt: 4, display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Button
-            component={RouterLink}
-            to="/login"
-            variant="contained"
-            size="large"
-            sx={{ px: 4, borderRadius: 999, backgroundColor: '#6d6d6d', '&:hover': { backgroundColor: '#5a5a5a' } }}
-          >
-            Sign In
-          </Button>
-          <Button
-            component={RouterLink}
-            to="/register"
-            variant="contained"
-            size="large"
-            sx={{ px: 4, borderRadius: 999, backgroundColor: '#6d6d6d', '&:hover': { backgroundColor: '#5a5a5a' } }}
-          >
-            Register Account
-          </Button>
-        </Box>
-      </Container>
+    <Box sx={{ minHeight: '100vh', background: 'linear-gradient(160deg, #0f1f14 0%, #1a3a24 50%, #22472d 100%)', color: 'white', display: 'flex', flexDirection: 'column' }}>
 
-      <Box sx={{ backgroundColor: 'rgba(0,0,0,0.15)', py: 1.5 }}>
+      {/* Hero — two column split */}
+      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center' }}>
         <Container maxWidth="lg">
-          <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', flexWrap: 'wrap', fontSize: '0.85rem' }}>
-            {['Transaction Overviews', 'Spending Trends', 'Bill Payment Tracking', 'Goal Progression'].map((f) => (
-              <Box key={f} component="span">{f}</Box>
-            ))}
-          </Box>
+          <Grid container spacing={6} alignItems="center" sx={{ minHeight: '100vh' }}>
+
+            {/* Left — branding + tagline + features */}
+            <Grid item xs={12} md={7}>
+              <Typography variant="h1" sx={{ fontWeight: 800, letterSpacing: 1, fontFamily: '"Trebuchet MS", Arial, sans-serif', fontSize: { xs: '3rem', md: '4.5rem' } }}>
+                Ledgr
+              </Typography>
+              <Typography sx={{ mt: 2, fontSize: '1.2rem', color: 'rgba(255,255,255,0.85)', lineHeight: 1.8, maxWidth: 480 }}>
+                Take control of your finances. Track spending, set budgets,
+                and reach your savings goals — all in one place.
+              </Typography>
+              <Grid container spacing={2} sx={{ mt: 4 }}>
+                {FEATURES.map(({ icon, title, desc }) => (
+                  <Grid item xs={12} sm={6} key={title}>
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                      <Box sx={{ color: 'rgba(255,255,255,0.75)', mt: 0.3, flexShrink: 0 }}>{icon}</Box>
+                      <Box>
+                        <Typography sx={{ fontWeight: 600, fontSize: '0.95rem' }}>{title}</Typography>
+                        <Typography sx={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.65)', lineHeight: 1.5 }}>{desc}</Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Grid>
+
+            {/* Right — call to action card */}
+            <Grid item xs={12} md={5}>
+              <Box sx={{ backgroundColor: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', borderRadius: 4, p: { xs: 4, md: 5 }, border: '1px solid rgba(255,255,255,0.2)' }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>Get started today</Typography>
+                <Typography sx={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.75)', mb: 4 }}>
+                  Create a free account and start tracking your finances in minutes.
+                </Typography>
+                <Button
+                  component={RouterLink}
+                  to="/register"
+                  variant="contained"
+                  fullWidth
+                  size="large"
+                  sx={{ py: 1.5, borderRadius: 2, backgroundColor: 'white', color: '#2f5f37', fontWeight: 700, fontSize: '1rem', mb: 2, '&:hover': { backgroundColor: 'rgba(255,255,255,0.9)' } }}
+                >
+                  Create Account
+                </Button>
+                <Button
+                  component={RouterLink}
+                  to="/login"
+                  variant="outlined"
+                  fullWidth
+                  size="large"
+                  sx={{ py: 1.5, borderRadius: 2, borderColor: 'rgba(255,255,255,0.6)', color: 'white', fontWeight: 600, fontSize: '1rem', '&:hover': { borderColor: 'white', backgroundColor: 'rgba(255,255,255,0.1)' } }}
+                >
+                  Sign In
+                </Button>
+              </Box>
+            </Grid>
+
+          </Grid>
         </Container>
       </Box>
 
-      <Box sx={{ backgroundColor: '#2c5a33', py: 3, textAlign: 'center' }}>
-        <Typography sx={{ fontSize: '1.6rem', letterSpacing: 1 }}>Check Out Our Features!</Typography>
-        <Box
-          sx={{
-            mt: 1,
-            px: 2, py: 0.5,
-            backgroundColor: isConnected ? '#2ecc71' : '#c0392b',
-            color: 'white',
-            borderRadius: 999,
-            display: 'inline-block',
-            fontSize: '0.8rem',
-          }}
-        >
-          API {isConnected ? 'connected' : 'disconnected'}
-        </Box>
+      {/* Footer */}
+      <Box sx={{ py: 2, textAlign: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        <Typography sx={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)' }}>
+          © {new Date().getFullYear()} Ledgr. All rights reserved.
+        </Typography>
       </Box>
+
     </Box>
   )
 }

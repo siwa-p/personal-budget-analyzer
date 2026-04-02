@@ -27,6 +27,7 @@ import {
 } from '@mui/material'
 import { Edit, Delete } from '@mui/icons-material'
 import { Controller, useForm } from 'react-hook-form'
+import { extractApiError } from '../utils/api'
 
 type BudgetWithCategory = {
   id: number
@@ -106,7 +107,7 @@ function Budgets() {
         })
         if (!res.ok) {
           const data = await res.json().catch(() => null)
-          throw new Error(data?.detail || 'Failed to load budgets.')
+          throw new Error(extractApiError(data, 'Failed to load budgets.'))
         }
         setBudgets(await res.json())
       } catch (err) {
@@ -159,7 +160,7 @@ function Budgets() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to create budget.')
+        throw new Error(extractApiError(data, 'Failed to create budget.'))
       }
       reset()
       setDialogOpen(false)
@@ -190,7 +191,7 @@ function Budgets() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to update budget.')
+        throw new Error(extractApiError(data, 'Failed to update budget.'))
       }
       setEditDialogOpen(false)
       setSelectedBudget(null)
@@ -219,7 +220,7 @@ function Budgets() {
       })
       if (!res.ok && res.status !== 204) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to delete budget.')
+        throw new Error(extractApiError(data, 'Failed to delete budget.'))
       }
       setDeleteDialogOpen(false)
       setSelectedBudget(null)

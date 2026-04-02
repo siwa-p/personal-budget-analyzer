@@ -23,7 +23,6 @@ function App() {
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>(
     () => (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   )
-  const location = useLocation()
   const [hasToken, setHasToken] = useState(Boolean(localStorage.getItem('access_token')))
   const [sidebarOpen, setSidebarOpen] = useState(
     () => localStorage.getItem('sidebar_open') !== 'false'

@@ -1,282 +1,196 @@
 # Personal Budget Analyzer
 
-A full-stack budget tracking application with React frontend, FastAPI backend, and PostgreSQL database.
+A full-stack budget tracking application with ML-powered expense categorization.
 
 ## Tech Stack
 
 - **Frontend**: React 18 + TypeScript + Vite + Material-UI
-- **Backend**: Python 3.12 + FastAPI
+- **Backend**: Python 3.12 + FastAPI + Celery
 - **Database**: PostgreSQL 16
-- **Cache/Queue**: Redis 7
+- **Cache / Queue**: Redis 7
+- **ML**: scikit-learn (TF-IDF + Naive Bayes) with Redis caching
+- **OCR**: Donut model for receipt scanning
 - **Containerization**: Docker + Docker Compose
 
-## First-Time Setup (For Junior Developers)
-
-If you're new to Docker or setting up your development environment for the first time, follow these steps:
-
-### 1. Install Docker Desktop
-
-**Download and Install:**
-- **macOS**: Download from [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/)
-- **Windows**: Download from [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
-- **Linux**: Follow instructions at [Docker Engine for Linux](https://docs.docker.com/engine/install/)
-
-**After Installation:**
-1. Open Docker Desktop application
-2. Wait for it to fully start (you'll see a green "running" status)
-3. Docker Desktop includes Docker Compose, so you'll have everything you need
-
-### 2. Verify Installation
-
-Open your terminal and run:
-```bash
-docker --version
-docker-compose --version
-```
-
-You should see version numbers for both commands.
-
-### 3. Clone the Repository
-
-```bash
-git clone git@github.com:Code-Campfire/smores-syntax.git
-cd smores-syntax
-```
-
-### 4. Need Help?
-
-- **Ask Claude Code**: If you run into issues during setup, ask Claude (claude.ai/code) to help troubleshoot. Claude can help with Docker installation, configuration, and common errors.
-
-- **Stuck or Running Older Hardware?**: If you're completely stuck or running on an older computer that can't handle Docker Desktop, reach out to your **team lead or admins** for assistance. They can help with alternative setup options or hardware upgrades.
-
-## Quick Start
+## Quick Start (Development)
 
 ### Prerequisites
 
-- Docker Desktop installed and running on your system (see "First-Time Setup" above if you haven't installed it yet)
+- Docker Desktop installed and running
 
-### Running the Application
-
-1. **Clone the repository** (if not already done)
-
-2. **Start all services with Docker Compose**:
-   ```bash
-   docker-compose up --build
-   ```
-
-   This will start:
-   - Frontend on http://localhost:5173
-   - Backend API on http://localhost:8000
-   - PostgreSQL database on localhost:5432
-   - Redis on localhost:6379
-
-3. **Access the application**:
-   - Frontend: http://localhost:5173
-   - Backend API docs: http://localhost:8000/docs
-   - Backend health check: http://localhost:8000/health
-
-### Stopping the Application
+### Run the application
 
 ```bash
-docker-compose down
+git clone <repo-url>
+cd personal-budget-analyzer
+cp backend/.env.example backend/.env   # fill in required values
+docker-compose up --build
 ```
 
-To also remove volumes (database data):
+Services:
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000 |
+| Swagger docs | http://localhost:8000/docs |
+| Health check | http://localhost:8000/health |
+
+### Stop
+
 ```bash
-docker-compose down -v
+docker-compose down          # stop containers
+docker-compose down -v       # stop + delete volumes (database data)
 ```
 
 ## Project Structure
 
 ```
 personal-budget-analyzer/
-├── frontend/               # React + TypeScript frontend
+├── frontend/                     # React + TypeScript frontend
 │   ├── src/
 │   ├── package.json
 │   └── vite.config.ts
-├── backend/                # FastAPI backend
+├── backend/                      # FastAPI backend
 │   ├── app/
-│   ├── requirements.txt
-│   └── .env.example
-├── docker/                 # Docker configuration
-│   ├── frontend.Dockerfile
-│   └── backend.Dockerfile
-└── docker-compose.yml      # Docker Compose orchestration
+│   ├── seed_data.sh              # seed 6 months of test transactions
+│   └── seed_ml_data.sh           # seed ML training data
+├── docker/                       # Dockerfiles + nginx config
+│   ├── backend.Dockerfile        # development
+│   ├── backend.prod.Dockerfile   # production
+│   ├── frontend.Dockerfile       # development
+│   ├── frontend.prod.Dockerfile  # production (multi-stage)
+│   └── nginx.frontend.conf
+├── pyproject.toml                # Python dependencies (uv)
+├── uv.lock
+├── Makefile                      # ECR build + push commands
+├── docker-compose.yml            # development
+└── docker-compose.prod.yml       # production
+```
+
+## Environment Variables
+
+### Backend
+Copy `backend/.env.example` to `backend/.env` and fill in:
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string |
+| `SECRET_KEY` | JWT secret (`openssl rand -hex 32`) |
+| `FIRST_SUPERUSER_EMAIL` | Initial admin account |
+| `FIRST_SUPERUSER_PASSWORD` | Initial admin password |
+| `MAIL_PASSWORD` | Resend API key (for password reset emails) |
+
+### Frontend
+Copy `frontend/.env.example` to `frontend/.env`:
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_URL` | Backend URL (default: `http://localhost:8000`) |
+
+## Authentication
+
+### Register
+`POST /api/v1/auth/register`
+```json
+{
+  "username": "john",
+  "email": "john@example.com",
+  "full_name": "John Doe",
+  "password": "strongpassword"
+}
+```
+
+### Login
+`POST /api/v1/auth/login` (form-data)
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -d "username=john@example.com&password=strongpassword"
+```
+
+Returns `{ "access_token": "<JWT>", "token_type": "bearer" }`. Include in subsequent requests as `Authorization: Bearer <JWT>`.
+
+### Password Reset
+
+Uses Resend SMTP via Celery. Configure `MAIL_PASSWORD` in `backend/.env` with your Resend API key.
+
+> Note: Resend test mode only allows sending to the email that owns the Resend account.
+
+```bash
+# Request reset
+curl -X POST http://localhost:8000/api/v1/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com"}'
+
+# Submit new password
+curl -X POST http://localhost:8000/api/v1/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<token-from-email>","new_password":"newpassword"}'
 ```
 
 ## Development
 
-### Frontend Development
+### Logs
 
-The frontend runs with hot-reload enabled. Any changes to files in `frontend/src/` will automatically refresh the browser.
+```bash
+docker-compose logs -f              # all services
+docker-compose logs -f backend      # backend only
+```
 
-### Backend Development
+Structured JSON logs also written to `backend/logs/application.log`.
 
-The backend runs with uvicorn's reload feature. Any changes to Python files will automatically restart the server.
+### Database access
 
-### Database Access
-
-To access the PostgreSQL database directly:
 ```bash
 docker-compose exec db psql -U postgres -d budget_analyzer
 ```
 
-### View Logs
+### Seed test data
 
-View logs for all services:
 ```bash
-docker-compose logs -f
+cd backend
+./seed_data.sh        # 6 months of transactions + budgets
+./seed_ml_data.sh     # ~200 varied transactions for ML training
 ```
 
-View logs for a specific service:
+## Production Deployment (AWS)
+
+The production stack targets:
+- **ECR** — Docker image registry
+- **EC2** — Compute (Docker Compose pulling from ECR)
+- **S3** — Receipt image storage
+- **CloudFront** — CDN distribution
+
+### Build and push images to ECR
+
+Prerequisites: AWS CLI configured (`aws configure`), IAM user with `AmazonEC2ContainerRegistryFullAccess`.
+
 ```bash
-docker-compose logs -f backend
-docker-compose logs -f frontend
-docker-compose logs -f db
+# One-time: create ECR repositories
+AWS_REGION=us-east-1
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+aws ecr create-repository --repository-name budget-analyzer/backend --region $AWS_REGION
+aws ecr create-repository --repository-name budget-analyzer/frontend --region $AWS_REGION
+
+# Build and push (replace with your EC2 public IP)
+make deploy VITE_API_URL=http://YOUR_EC2_PUBLIC_IP:8000
 ```
 
-## API Documentation
+> `VITE_API_URL` is baked into the frontend JS bundle at build time — rebuild the frontend image whenever the backend URL changes.
 
-Once the backend is running, visit:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+### Production environment
 
-### User Authentication
+Copy `.env.prod.example` to `.env.prod` and `backend/.env.prod.example` to `backend/.env.prod`, then:
 
-The backend exposes a simple JWT-based login flow that the frontend (or external clients) can call:
-
-1. **Create the initial superuser** – required to access admin-only endpoints. After the stack is running execute:
-   ```bash
-   docker-compose run --rm backend python -m app.initial_data
-   ```
-   This command reads the `FIRST_SUPERUSER_*` variables from `backend/.env` (see `backend/.env.example`) and creates the account if it does not already exist.
-
-2. **Register a regular user** – submit `POST /api/v1/auth/register` with the JSON payload:
-   ```json
-   {
-     "username": "luis",
-     "email": "luis@example.com",
-     "full_name": "Luis Estigarribia",
-     "password": "strong-password"
-   }
-   ```
-   The endpoint enforces unique `email`/`username` combinations and will always store new accounts as active, non‑superusers.
-
-3. **Obtain a token** – call `POST /api/v1/auth/login` with form-data (`application/x-www-form-urlencoded`). Example `curl`:
-   ```bash
-   curl -X POST http://localhost:8000/api/v1/auth/login \
-     -H "Content-Type: application/x-www-form-urlencoded" \
-     -d "username=luis@example.com&password=strong-password"
-   ```
-   The response contains:
-   ```json
-   {
-     "access_token": "<JWT>",
-     "token_type": "bearer"
-   }
-   ```
-
-4. **Use the token** – include `Authorization: Bearer <JWT>` in subsequent requests. Useful endpoints:
-   - `GET /api/v1/users/me` – returns the profile tied to the current token.
-   - `GET /api/v1/users` and `POST /api/v1/users` – admin-only operations that require the superuser token.
-
-### Password Reset (Resend + Celery)
-
-Forgot password is supported via email verification. The flow uses a password reset token stored in the database and a Celery worker to send emails through Resend SMTP.
-
-Important for local testing: Resend test mode only allows sending to the email address that owns the Resend account. Each teammate must use their own Resend account and API key, and test using their own email address. This is expected for development; production configuration will be handled later.
-
-1. **Configure env vars** in your local `.env` (root of repo):
-   ```bash
-   MAIL_FROM=onboarding@resend.dev
-   MAIL_FROM_NAME=Smore Budget
-   MAIL_USERNAME=resend
-   MAIL_PASSWORD=re_XXXXXXXXXXXX  # This is the Resend API KEY, you need to copy it from your Resend account
-   ```
-   Also set `FRONTEND_URL` and `PASSWORD_RESET_PATH` if your frontend differs from defaults.
-
-2. **Start the stack**, including the Celery worker:
-   ```bash
-   docker compose up --build
-   ```
-
-3. **Request a reset**:
-   ```bash
-   curl -X POST http://localhost:8000/api/v1/auth/forgot-password \
-     -H "Content-Type: application/json" \
-     -d "{\"email\":\"your-own-resend-email@example.com\"}"
-   ```
-   Example (must be the email tied to your Resend account):
-   ```bash
-   curl -X POST http://localhost:8000/api/v1/auth/forgot-password \
-     -H "Content-Type: application/json" \
-     -d "{\"email\":\"you@your-resend-email.com\"}"
-   ```
-   **The API always returns a success message, even if the email is not registered.**
-
-4. **Reset password** using the token from the email:
-   ```bash
-   curl -X POST http://localhost:8000/api/v1/auth/reset-password \
-     -H "Content-Type: application/json" \
-     -d "{\"token\":\"<token-from-email>\",\"new_password\":\"new-strong-password\"}"
-   ```
-
-## Environment Variables
-
-### Backend (.env)
-See `backend/.env.example` for all available environment variables.
-
-### Frontend (.env)
-See `frontend/.env.example` for all available environment variables.
-
-## Testing the Frontend (Register, Login, Profile Update)
-
-Once the application is running (see Quick Start above), test the authentication features:
-
-### 1. Register a New User
-- Navigate to http://localhost:5173/register
-- Fill in the form:
-  - First Name: `John`
-  - Last Name: `Doe`
-  - Email: `john.doe@example.com`
-  - Password: `password123` (min 8 chars)
-- Click **Register**
-- ✅ You should see a success message and be redirected to the update profile page
-
-### 2. Login
-- Navigate to http://localhost:5173/login
-- Enter credentials:
-  - Email: `john.doe@example.com`
-  - Password: `password123`
-- Click **Sign In**
-- ✅ You should be redirected to the update profile page
-
-### 3. Update Profile
-- On the profile page (http://localhost:5173/profile)
-- Modify any field (e.g., Full Name or Theme)
-- Click **Save changes**
-- ✅ Changes should be saved and theme should update immediately
-
-### 4. Test Theme Persistence
-- Change theme to **Dark** and save
-- Logout and login again
-- ✅ Dark theme should be automatically applied
-
-## Next Steps
-
-This is a basic skeleton setup. To add features:
-
-1. Add database models in `backend/app/models/`
-2. Create API endpoints in `backend/app/api/v1/endpoints/`
-3. Build UI components in `frontend/src/components/`
-4. Add pages in `frontend/src/pages/`
-5. Set up Redux store in `frontend/src/store/`
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
 
 ## Troubleshooting
 
-**Port already in use**: If you see port binding errors, make sure ports 5173, 8000, 5432, and 6379 are not being used by other applications.
+**Port already in use**: Ensure ports 5173, 8000, 5432, and 6379 are free.
 
-**Database connection errors**: Wait a few seconds for the database to fully initialize on first run.
+**Database connection errors**: Wait a few seconds on first run for PostgreSQL to initialize.
 
-**Frontend can't connect to backend**: Make sure the `VITE_API_URL` environment variable is set correctly.
-
+**Frontend can't reach backend**: Check `VITE_API_URL` in `frontend/.env` matches where the backend is running.
