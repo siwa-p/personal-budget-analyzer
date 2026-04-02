@@ -28,6 +28,7 @@ import {
 } from '@mui/material'
 import { Edit, Delete } from '@mui/icons-material'
 import { Controller, useForm } from 'react-hook-form'
+import { extractApiError } from '../utils/api'
 
 type Goal = {
   id: number
@@ -96,7 +97,7 @@ function Goals() {
         const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
         if (!res.ok) {
           const data = await res.json().catch(() => null)
-          throw new Error(data?.detail || 'Failed to load goals.')
+          throw new Error(extractApiError(data, 'Failed to load goals.'))
         }
         const baseGoals: Goal[] = await res.json()
 
@@ -147,7 +148,7 @@ function Goals() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to create goal.')
+        throw new Error(extractApiError(data, 'Failed to create goal.'))
       }
       reset()
       setDialogOpen(false)
@@ -189,7 +190,7 @@ function Goals() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to update goal.')
+        throw new Error(extractApiError(data, 'Failed to update goal.'))
       }
       setEditDialogOpen(false)
       setSelectedGoal(null)
@@ -218,7 +219,7 @@ function Goals() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to delete goal.')
+        throw new Error(extractApiError(data, 'Failed to delete goal.'))
       }
       setDeleteDialogOpen(false)
       setSelectedGoal(null)

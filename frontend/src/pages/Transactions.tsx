@@ -28,6 +28,7 @@ import {
 } from '@mui/material'
 import { Edit, Delete, Add } from '@mui/icons-material'
 import { Controller, useForm } from 'react-hook-form'
+import { extractApiError } from '../utils/api'
 
 type Transaction = {
   id: number
@@ -260,7 +261,7 @@ function Transactions() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to create category.')
+        throw new Error(extractApiError(data, 'Failed to create category.'))
       }
       const created = (await res.json()) as Category
       setCategories((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
@@ -382,7 +383,7 @@ function Transactions() {
     const capturedSuggestion = lastSuggestionRef.current
 
     try {
-      const response = await fetch(`${apiUrl}/api/v1/transactions`, {
+      const response = await fetch(`${apiUrl}/api/v1/transactions/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -400,8 +401,7 @@ function Transactions() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => null)
-        const message = data?.detail || 'Failed to create transaction.'
-        throw new Error(message)
+        throw new Error(extractApiError(data, 'Failed to create transaction.'))
       }
 
       const newTransaction = (await response.json()) as Transaction
@@ -488,8 +488,7 @@ function Transactions() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => null)
-        const message = data?.detail || 'Failed to update transaction.'
-        throw new Error(message)
+        throw new Error(extractApiError(data, 'Failed to update transaction.'))
       }
 
       await loadTransactions()
@@ -531,8 +530,7 @@ function Transactions() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => null)
-        const message = data?.detail || 'Failed to delete transaction.'
-        throw new Error(message)
+        throw new Error(extractApiError(data, 'Failed to delete transaction.'))
       }
 
       await loadTransactions()
@@ -784,38 +782,40 @@ function Transactions() {
               disabled={isSubmitting}
             />
 
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-              <FormControl sx={{ flex: 1 }}>
-                <InputLabel id="category-label">Category</InputLabel>
-                <Controller
-                  name="category_id"
-                  control={control}
-                  rules={{ required: true, min: 1 }}
-                  render={({ field }) => (
-                    <Select
-                      labelId="category-label"
-                      label="Category"
-                      {...field}
-                      disabled={isSubmitting || isLoadingCategories}
-                    >
-                      <MenuItem value={0}>Select a category</MenuItem>
-                      {categories.map((category) => (
-                        <MenuItem key={category.id} value={category.id}>
-                          {category.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  )}
-                />
-              </FormControl>
-              <IconButton
-                title="Add new category"
-                onClick={() => { resetCat(); setNewCategoryDialogOpen(true) }}
-                sx={{ mt: 1 }}
-              >
-                <Add />
-              </IconButton>
-            </Box>
+            <FormControl fullWidth>
+              <InputLabel id="category-label">Category</InputLabel>
+              <Controller
+                name="category_id"
+                control={control}
+                rules={{ required: true, min: 1 }}
+                render={({ field }) => (
+                  <Select
+                    labelId="category-label"
+                    label="Category"
+                    {...field}
+                    disabled={isSubmitting || isLoadingCategories}
+                    onChange={(e) => {
+                      if (e.target.value === -1) {
+                        resetCat()
+                        setNewCategoryDialogOpen(true)
+                      } else {
+                        field.onChange(e)
+                      }
+                    }}
+                  >
+                    <MenuItem value={0}>Select a category</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                    <MenuItem value={-1} sx={{ color: 'primary.main', fontWeight: 600, borderTop: '1px solid', borderColor: 'divider', mt: 0.5 }}>
+                      <Add fontSize="small" sx={{ mr: 1 }} /> Create new category
+                    </MenuItem>
+                  </Select>
+                )}
+              />
+            </FormControl>
 
             {suggestionLoading && (
               <Typography variant="caption" color="text.secondary">

@@ -30,9 +30,7 @@ services:
     restart: unless-stopped
 
   backend:
-    build:
-      context: .
-      dockerfile: docker/backend.prod.Dockerfile
+    image: ${ECR_BASE}/budget-analyzer/backend:latest
     container_name: budget_analyzer_backend
     ports:
       - "8000:8000"
@@ -48,9 +46,7 @@ services:
     restart: unless-stopped
 
   celery_worker:
-    build:
-      context: .
-      dockerfile: docker/backend.prod.Dockerfile
+    image: ${ECR_BASE}/budget-analyzer/backend:latest
     container_name: budget_analyzer_celery
     command: celery -A app.core.celery_app.celery_app worker --loglevel=info --uid=nobody
     env_file:
@@ -60,18 +56,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  frontend:
-    build:
-      context: .
-      dockerfile: docker/frontend.prod.Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL}
-    container_name: budget_analyzer_frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
 
 volumes:
   postgres_data:

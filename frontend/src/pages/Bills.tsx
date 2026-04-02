@@ -27,6 +27,7 @@ import {
 } from '@mui/material'
 import { Edit, Delete, CheckCircle } from '@mui/icons-material'
 import { Controller, useForm } from 'react-hook-form'
+import { extractApiError } from '../utils/api'
 
 type Bill = {
   id: number
@@ -106,7 +107,7 @@ function Bills() {
         })
         if (!res.ok) {
           const data = await res.json().catch(() => null)
-          throw new Error(data?.detail || 'Failed to load bills.')
+          throw new Error(extractApiError(data, 'Failed to load bills.'))
         }
         const data = await res.json()
         setBills(data)
@@ -142,7 +143,7 @@ function Bills() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to create bill.')
+        throw new Error(extractApiError(data, 'Failed to create bill.'))
       }
       reset()
       setDialogOpen(false)
@@ -186,7 +187,7 @@ function Bills() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to update bill.')
+        throw new Error(extractApiError(data, 'Failed to update bill.'))
       }
       setEditDialogOpen(false)
       setSelectedBill(null)
@@ -215,7 +216,7 @@ function Bills() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to delete bill.')
+        throw new Error(extractApiError(data, 'Failed to delete bill.'))
       }
       setDeleteDialogOpen(false)
       setSelectedBill(null)
@@ -237,7 +238,7 @@ function Bills() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to mark bill as paid.')
+        throw new Error(extractApiError(data, 'Failed to mark bill as paid.'))
       }
       setSuccess(`"${bill.title}" marked as paid.`)
       loadBills(filterTab)

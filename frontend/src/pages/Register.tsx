@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import { Alert, Box, Button, Container, TextField, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
+import { extractApiError } from '../utils/api'
 
 type RegisterValues = {
   firstName: string
@@ -55,7 +56,7 @@ function Register() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => null)
-        const message = data?.detail || 'Failed to register user.'
+        const message = extractApiError(data, 'Failed to register user.')
         throw new Error(message)
       }
 

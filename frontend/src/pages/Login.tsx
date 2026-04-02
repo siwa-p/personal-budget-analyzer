@@ -1,8 +1,9 @@
 import { useContext, useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
-import { Alert, Box, Button, Container, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, TextField, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
 import { ThemeContext } from '../contexts/ThemeContext'
+import { extractApiError } from '../utils/api'
 
 type LoginValues = {
   email: string
@@ -36,7 +37,7 @@ function Login() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => null)
-        const message = data?.detail || 'Invalid credentials.'
+        const message = extractApiError(data, 'Invalid credentials.')
         throw new Error(message)
       }
 
@@ -64,129 +65,91 @@ function Login() {
   }
 
   return (
-    <Box
-      sx={{
-        minHeight: 'calc(100vh - 64px)',
-        background: 'radial-gradient(circle at 20% 20%, #8dbb5f 0%, #4f7a39 45%, #2b4b2a 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        px: 2,
-        py: 6
-      }}
-    >
-      <Container maxWidth="xs">
-        <Box
-          sx={{
-            textAlign: 'center',
-            color: 'white',
-            fontFamily: '"Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande", Arial, sans-serif'
-          }}
-        >
-          <Box
-            sx={{
-              width: 48,
-              height: 48,
-              borderRadius: '50%',
-              border: '2px solid rgba(255,255,255,0.6)',
-              mx: 'auto',
-              mb: 2,
-              display: 'grid',
-              placeItems: 'center',
-              fontWeight: 700
-            }}
+    <Box sx={{ minHeight: '100vh', display: 'flex' }}>
+
+      {/* Left panel — branding */}
+      <Box
+        sx={{
+          display: { xs: 'none', md: 'flex' },
+          flex: 1,
+          background: 'linear-gradient(160deg, #0f1f14 0%, #1a3a24 50%, #22472d 100%)',
+          color: 'white',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          px: 8,
+        }}
+      >
+        <Typography variant="h2" sx={{ fontWeight: 800, letterSpacing: 1, fontFamily: '"Trebuchet MS", Arial, sans-serif' }}>
+          Ledgr
+        </Typography>
+        <Typography sx={{ mt: 2, fontSize: '1.1rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.8, maxWidth: 380 }}>
+          Track spending, set budgets, and reach your savings goals — all in one place.
+        </Typography>
+      </Box>
+
+      {/* Right panel — form */}
+      <Box
+        sx={{
+          width: { xs: '100%', md: 480 },
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          px: { xs: 4, md: 8 },
+          py: 8,
+          backgroundColor: 'background.default',
+        }}
+      >
+        <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+          Welcome back
+        </Typography>
+        <Typography sx={{ mb: 4, color: 'text.secondary' }}>
+          Sign in to your Ledgr account
+        </Typography>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <TextField
+            label="Email"
+            type="email"
+            fullWidth
+            {...register('email', { required: true })}
+          />
+          <TextField
+            label="Password"
+            type="password"
+            fullWidth
+            {...register('password', { required: true })}
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            size="large"
+            disabled={isLoading}
+            sx={{ mt: 1, py: 1.5, borderRadius: 2, fontWeight: 700 }}
           >
-            PB
-          </Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-            Ledgr
-          </Typography>
-          <Typography sx={{ mb: 4, opacity: 0.9 }}>
-            Sign In
-          </Typography>
+            {isLoading ? 'Signing in…' : 'Sign In'}
+          </Button>
+        </Box>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          <Box
-            component="form"
-            onSubmit={handleSubmit(onSubmit)}
-            sx={{
-              display: 'grid',
-              gap: 2,
-              alignItems: 'center',
-              justifyItems: 'center'
-            }}
-          >
-            <TextField
-              label="Email"
-              type="email"
-              placeholder="Email"
-              InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
-              {...register('email', { required: true })}
-              sx={{
-                width: 220,
-                backgroundColor: '#e0e0e0',
-                borderRadius: 1,
-                '& .MuiInputBase-input': { color: '#1b1b1b' }
-              }}
-            />
-            <TextField
-              label="Password"
-              type="password"
-              placeholder="Password"
-              InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
-              {...register('password', { required: true })}
-              sx={{
-                width: 220,
-                backgroundColor: '#e0e0e0',
-                borderRadius: 1,
-                '& .MuiInputBase-input': { color: '#1b1b1b' }
-              }}
-            />
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={isLoading}
-              sx={{
-                mt: 1,
-                px: 4,
-                borderRadius: 999,
-                backgroundColor: 'primary.main',
-                '&:hover': { backgroundColor: '#5a5a5a' }
-              }}
-            >
-              Sign In
-            </Button>
-          </Box>
-
-          <Typography sx={{ mt: 2, fontSize: '0.9rem' }}>
-            <Button
-              component={RouterLink}
-              to="/forgot-password"
-              size="small"
-              sx={{ textDecoration: 'underline', color: 'white' }}
-            >
-              Forgot Password?
-            </Button>
-          </Typography>
-
-          <Typography sx={{ mt: 3, fontStyle: 'italic' }}>
-            Not a User?{' '}
-            <Button
-              component={RouterLink}
-              to="/register"
-              size="small"
-              sx={{ ml: 1, textDecoration: 'underline', color: 'white' }}
-            >
-              Register Here!
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Button component={RouterLink} to="/forgot-password" size="small" sx={{ color: 'text.secondary', textTransform: 'none' }}>
+            Forgot password?
+          </Button>
+          <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
+            No account?{' '}
+            <Button component={RouterLink} to="/register" size="small" sx={{ fontWeight: 600, textTransform: 'none', p: 0, minWidth: 0 }}>
+              Register
             </Button>
           </Typography>
         </Box>
-      </Container>
+      </Box>
+
     </Box>
   )
 }

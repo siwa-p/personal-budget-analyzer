@@ -28,6 +28,7 @@ import {
 } from '@mui/material'
 import { Edit, Delete } from '@mui/icons-material'
 import { Controller, useForm } from 'react-hook-form'
+import { extractApiError } from '../utils/api'
 
 type Category = {
   id: number
@@ -134,7 +135,7 @@ function Categories() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to create category.')
+        throw new Error(extractApiError(data, 'Failed to create category.'))
       }
       reset()
       setDialogOpen(false)
@@ -180,7 +181,7 @@ function Categories() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to update category.')
+        throw new Error(extractApiError(data, 'Failed to update category.'))
       }
       setEditDialogOpen(false)
       setSelectedCategory(null)
@@ -209,7 +210,7 @@ function Categories() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || 'Failed to delete category.')
+        throw new Error(extractApiError(data, 'Failed to delete category.'))
       }
       setDeleteDialogOpen(false)
       setSelectedCategory(null)

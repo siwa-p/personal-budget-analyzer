@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Box, Button, Container, TextField, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
+import { extractApiError } from '../utils/api'
 
 type ResetPasswordValues = {
     newPassword: string
@@ -54,7 +55,7 @@ function ResetPassword() {
 
             if (!response.ok) {
                 const data = await response.json().catch(() => null)
-                const message = data?.detail || 'Failed to reset password.'
+                const message = extractApiError(data, 'Failed to reset password.')
                 throw new Error(message)
             }
 
