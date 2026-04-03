@@ -17,7 +17,7 @@ from app.models.transaction import Transactions
 
 logger = setup_logging()
 
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"  # fastembed model name
 _encoder = None  # process-level singleton
 
 # L1: in-process cache (fast, invalidated on corrections or restart)
@@ -72,16 +72,16 @@ def _get_redis() -> redis_lib.Redis | None:
 def _get_encoder():
     global _encoder
     if _encoder is None:
-        from sentence_transformers import SentenceTransformer
-        logger.info(f"Loading sentence transformer: {EMBEDDING_MODEL}")
-        _encoder = SentenceTransformer(EMBEDDING_MODEL)
-        logger.info("Sentence transformer loaded")
+        from fastembed import TextEmbedding
+        logger.info(f"Loading fastembed model: {EMBEDDING_MODEL}")
+        _encoder = TextEmbedding(EMBEDDING_MODEL)
+        logger.info("Fastembed model loaded")
     return _encoder
 
 
 def _encode(texts: list[str]):
     import numpy as np
-    embeddings = _get_encoder().encode(texts, batch_size=64, show_progress_bar=False)
+    embeddings = list(_get_encoder().embed(texts))
     return np.array(embeddings)
 
 
