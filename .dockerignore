@@ -1,0 +1,38 @@
+# Frontend heavy artifacts (source needed by frontend Dockerfile)
+frontend/node_modules/
+frontend/dist/
+
+# Git
+.git/
+.gitignore
+
+# Python caches and virtual envs
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.venv/
+.venv/
+*.egg-info/
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Dev/test artifacts
+**/.pytest_cache/
+**/htmlcov/
+**/.coverage
+**/coverage.xml
+
+# Editor / OS
+.DS_Store
+**/.DS_Store
+.idea/
+.vscode/
+
+# Docs and plans
+*.md
+plan.md
+README.md

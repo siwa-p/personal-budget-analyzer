@@ -247,8 +247,12 @@ function Bills() {
     }
   }
 
+  const today = new Date().toISOString().slice(0, 10)
+
+  const isPaid = (bill: Bill) => bill.last_paid_date === today
+
   const isOverdue = (bill: Bill) => {
-    return new Date(bill.due_date) < new Date(new Date().toISOString().slice(0, 10))
+    return !isPaid(bill) && new Date(bill.due_date) < new Date(today)
   }
 
   const formatDate = (dateStr: string | null) => {
@@ -327,7 +331,9 @@ function Bills() {
                   <TableCell sx={{ textTransform: 'capitalize' }}>{bill.recurrence || 'none'}</TableCell>
                   <TableCell>{formatDate(bill.last_paid_date)}</TableCell>
                   <TableCell>
-                    {isOverdue(bill) ? (
+                    {isPaid(bill) ? (
+                      <Chip label="Paid" color="primary" size="small" />
+                    ) : isOverdue(bill) ? (
                       <Chip label="Overdue" color="error" size="small" />
                     ) : (
                       <Chip label="Upcoming" color="success" size="small" />
@@ -340,6 +346,7 @@ function Bills() {
                         startIcon={<CheckCircle />}
                         onClick={() => markPaid(bill)}
                         color="success"
+                        disabled={isPaid(bill)}
                       >
                         Mark Paid
                       </Button>
