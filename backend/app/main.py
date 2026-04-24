@@ -7,7 +7,7 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.logger_init import setup_logging
 from app.db.base import Base
-from app.db.init_db import init_db, init_superuser
+from app.db.init_db import init_db
 from app.db.session import engine, get_session
 
 logger = setup_logging()
@@ -19,7 +19,6 @@ async def lifespan(app: FastAPI):
     logger.info("Database tables created.")
     with get_session() as db:
         init_db(db)
-        init_superuser(db)
     yield
 
 

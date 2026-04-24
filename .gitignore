@@ -34,3 +34,5 @@ logs/
 backend/mlruns/
 
 plan.md
+
+*.vite/

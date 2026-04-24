@@ -1,72 +1,28 @@
-import hashlib
-import hmac
-import pickle
 from collections import Counter
 
-import redis as redis_lib
 from scipy.stats import loguniform
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.logger_init import setup_logging
 from app.models.category import Category
 from app.models.transaction import Transactions
 
 logger = setup_logging()
 
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"  # fastembed model name
-_encoder = None  # process-level singleton
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+_encoder = None
 
-# L1: in-process cache (fast, invalidated on corrections or restart)
 _model_cache: dict[int, tuple[SGDClassifier, list[str]]] = {}
-
-# L2: Redis (24h TTL, survives restarts, shared across workers)
-# v2: embedding-based (incompatible with v1 TF-IDF caches)
-_redis_client: redis_lib.Redis | None = None
-_redis_checked: bool = False
-_REDIS_KEY_PREFIX = "ml_model:v2:"
-MODEL_TTL_SECONDS = 24 * 60 * 60
 
 N_ITER = 20
 CONFIDENCE_THRESHOLD = 0.45
 SIMILARITY_THRESHOLD = 0.40
 CORRECTION_WEIGHT = 3
 
-# Cache of category name → embedding (populated lazily, never invalidated — names don't change)
 _category_emb_cache: dict = {}
-
-
-def _sign(data: bytes) -> bytes:
-    key = settings.SECRET_KEY.encode()
-    sig = hmac.new(key, data, hashlib.sha256).digest()
-    return sig + data
-
-
-def _verify_and_load(signed_data: bytes) -> tuple[SGDClassifier, list[str]]:
-    key = settings.SECRET_KEY.encode()
-    sig, data = signed_data[:32], signed_data[32:]
-    expected = hmac.new(key, data, hashlib.sha256).digest()
-    if not hmac.compare_digest(sig, expected):
-        raise ValueError("ML model Redis payload failed HMAC verification")
-    return pickle.loads(data)  # noqa: S301 — data verified above
-
-
-def _get_redis() -> redis_lib.Redis | None:
-    global _redis_client, _redis_checked
-    if _redis_checked:
-        return _redis_client
-    _redis_checked = True
-    try:
-        client = redis_lib.from_url(settings.REDIS_URL, decode_responses=False)
-        client.ping()
-        _redis_client = client
-        logger.info("ML service: Redis connection established")
-    except Exception:
-        logger.warning("ML service: Redis unavailable, using in-memory cache only")
-    return _redis_client
 
 
 def _get_encoder():
@@ -86,7 +42,7 @@ def _encode(texts: list[str]):
 
 
 def _get_training_data(db: Session, user_id: int) -> list[tuple[str, str]]:
-    from app.models.category_feedback import CategoryFeedback  # local import avoids circular dependency
+    from app.models.category_feedback import CategoryFeedback
 
     stmt = (
         select(Transactions.description, Category.name)
@@ -122,10 +78,6 @@ def _get_training_data(db: Session, user_id: int) -> list[tuple[str, str]]:
         f"User {user_id}: training data — {len(rows)} transactions + {len(feedback_rows)} corrections "
         f"(x{CORRECTION_WEIGHT}) = {len(samples)} total samples | distribution: {dict(cat_counts)}"
     )
-    for desc, cat_name in feedback_rows:
-        if desc and desc.strip():
-            logger.info(f"  [correction sample x{CORRECTION_WEIGHT}] '{desc}' → '{cat_name}'")
-
     return samples
 
 
@@ -175,20 +127,8 @@ def _similarity_predict(desc_emb, available_categories: list[dict]) -> tuple[str
 
 def _get_or_train(db: Session, user_id: int) -> tuple[SGDClassifier, list[str]] | None:
     if user_id in _model_cache:
-        logger.debug(f"User {user_id}: ML model served from in-memory cache (L1)")
+        logger.debug(f"User {user_id}: ML model served from in-memory cache")
         return _model_cache[user_id]
-
-    r = _get_redis()
-    if r is not None:
-        try:
-            data = r.get(f"{_REDIS_KEY_PREFIX}{user_id}")
-            if data:
-                clf, classes = _verify_and_load(data)
-                _model_cache[user_id] = (clf, classes)
-                logger.info(f"User {user_id}: ML model loaded from Redis (L2), warm in L1")
-                return clf, classes
-        except Exception:
-            logger.warning(f"User {user_id}: Redis read failed, will retrain from DB")
 
     samples = _get_training_data(db, user_id)
 
@@ -197,17 +137,6 @@ def _get_or_train(db: Session, user_id: int) -> tuple[SGDClassifier, list[str]] 
         clf, classes = _train_clf(samples)
         _model_cache[user_id] = (clf, classes)
         logger.info(f"User {user_id}: model trained, classes={classes}")
-        if r is not None:
-            try:
-                r.set(
-                    f"{_REDIS_KEY_PREFIX}{user_id}",
-                    _sign(pickle.dumps((clf, classes))),
-                    ex=MODEL_TTL_SECONDS,
-                )
-                logger.info(f"User {user_id}: ML model persisted to Redis (TTL={MODEL_TTL_SECONDS}s)")
-            except Exception:
-                logger.warning(f"User {user_id}: Redis write failed, model in L1 only")
-
         return clf, classes
     except Exception:
         logger.exception(f"User {user_id}: model training failed")
@@ -226,7 +155,6 @@ def predict_category(
         return _no_suggestion
 
     name_to_cat = {c["name"]: c for c in available_categories}
-
     desc_emb = _encode([description])
 
     model_result = _get_or_train(db, user_id)
@@ -247,14 +175,12 @@ def predict_category(
                     "confidence": round(confidence, 4),
                     "source": "ml",
                 }
-            logger.debug(f"User {user_id}: ML confidence too low ({confidence:.0%}) "
-                         f"for '{description}', falling back to similarity")
+            logger.debug(f"User {user_id}: ML confidence too low ({confidence:.0%}) for '{description}', falling back")
         except Exception:
             logger.warning(f"User {user_id}: ML prediction failed for '{description}', falling back to similarity")
 
     matched_name, similarity = _similarity_predict(desc_emb[0], available_categories)
     if matched_name:
-        logger.debug(f"User {user_id}: similarity matched '{matched_name}' ({similarity:.0%}) for '{description}'")
         cat = name_to_cat[matched_name]
         return {
             "category_id": cat["id"],
@@ -263,7 +189,6 @@ def predict_category(
             "source": "similarity",
         }
 
-    logger.debug(f"User {user_id}: no suggestion for '{description}'")
     return _no_suggestion
 
 
@@ -272,19 +197,7 @@ def incremental_update(user_id: int, description: str, label: str, is_correction
 
     cached = _model_cache.get(user_id)
     if cached is None:
-        r = _get_redis()
-        if r is not None:
-            try:
-                data = r.get(f"{_REDIS_KEY_PREFIX}{user_id}")
-                if data:
-                    clf, classes = _verify_and_load(data)
-                    _model_cache[user_id] = (clf, classes)
-                    cached = (clf, classes)
-            except Exception:
-                logger.warning(f"User {user_id}: Redis read failed during incremental update lookup")
-
-    if cached is None:
-        logger.debug(f"User {user_id}: no cached model — incremental update skipped, will retrain on next predict")
+        logger.debug(f"User {user_id}: no cached model — incremental update skipped")
         return
 
     clf, classes = cached
@@ -298,26 +211,9 @@ def incremental_update(user_id: int, description: str, label: str, is_correction
     x = np.tile(_encode([description]), (weight, 1))
     clf.partial_fit(x, [label] * weight)
     _model_cache[user_id] = (clf, classes)
-
-    r = _get_redis()
-    if r is not None:
-        try:
-            r.set(
-                f"{_REDIS_KEY_PREFIX}{user_id}",
-                _sign(pickle.dumps((clf, classes))),
-                ex=MODEL_TTL_SECONDS,
-            )
-        except Exception:
-            logger.warning(f"User {user_id}: Redis write failed during incremental update")
     logger.info(f"User {user_id}: partial_fit '{description}' → '{label}' (weight={weight})")
 
 
 def invalidate_cache(user_id: int) -> None:
     _model_cache.pop(user_id, None)
-    r = _get_redis()
-    if r is not None:
-        try:
-            r.delete(f"{_REDIS_KEY_PREFIX}{user_id}")
-        except Exception:
-            logger.warning(f"User {user_id}: Redis delete failed during cache invalidation")
-    logger.info(f"User {user_id}: ML model cache invalidated (L1 + Redis)")
+    logger.info(f"User {user_id}: ML model cache invalidated")

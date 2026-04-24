@@ -19,6 +19,10 @@ frontend/dist/
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.prod.example
 
 # Dev/test artifacts
 **/.pytest_cache/

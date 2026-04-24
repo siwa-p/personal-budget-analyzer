@@ -32,11 +32,6 @@ dependencies = [
     "pydantic==2.9.2",
     "pydantic-settings==2.6.0",
     "email-validator==2.2.0",
-    "fastapi-mail==1.4.1",
-
-    # Async Tasks
-    "celery==5.4.0",
-    "redis==5.2.0",
 
     # ML & Data Processing
     "scikit-learn==1.5.2",
@@ -45,9 +40,6 @@ dependencies = [
     "joblib==1.4.2",
     # Embeddings (semantic ML categorization) — ONNX-based, no torch dependency
     "fastembed>=0.3.0",
-
-    # External APIs
-    "plaid-python==29.0.0",
 
     # Export
     "reportlab==4.2.5",

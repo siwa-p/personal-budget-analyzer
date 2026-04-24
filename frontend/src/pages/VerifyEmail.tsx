@@ -1,32 +1,36 @@
 import { useState } from 'react'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import { Alert, Box, Button, Container, TextField, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
 
-type ForgotPasswordValues = {
+type VerifyEmailValues = {
     email: string
+    code: string
 }
 
-function ForgotPassword() {
+function VerifyEmail() {
     const navigate = useNavigate()
+    const location = useLocation()
+    const prefillEmail = (location.state as { email?: string } | null)?.email ?? ''
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
-    const { register, handleSubmit } = useForm<ForgotPasswordValues>({
-        defaultValues: { email: '' }
+
+    const { register, handleSubmit } = useForm<VerifyEmailValues>({
+        defaultValues: { email: prefillEmail, code: '' }
     })
 
-    const onSubmit = async (values: ForgotPasswordValues) => {
+    const onSubmit = async (values: VerifyEmailValues) => {
         setIsLoading(true)
         setError(null)
         setSuccess(null)
         try {
-            const { resetPassword } = await import('aws-amplify/auth')
-            await resetPassword({ username: values.email })
-            setSuccess('Check your email for a 6-digit verification code.')
-            setTimeout(() => navigate('/reset-password', { state: { email: values.email } }), 1500)
-        } catch (fetchError) {
-            setError(fetchError instanceof Error ? fetchError.message : 'Unknown error.')
+            const { confirmSignUp } = await import('aws-amplify/auth')
+            await confirmSignUp({ username: values.email, confirmationCode: values.code })
+            setSuccess('Email verified! Redirecting to sign in…')
+            setTimeout(() => navigate('/login'), 1500)
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Unknown error.')
         } finally {
             setIsLoading(false)
         }
@@ -71,7 +75,7 @@ function ForgotPassword() {
                         Ledgr
                     </Typography>
                     <Typography sx={{ mb: 4, opacity: 0.9 }}>
-                        Forgot Password
+                        Verify your email
                     </Typography>
 
                     {error && (
@@ -79,7 +83,6 @@ function ForgotPassword() {
                             {error}
                         </Alert>
                     )}
-
                     {success && (
                         <Alert severity="success" sx={{ mb: 2 }}>
                             {success}
@@ -89,44 +92,35 @@ function ForgotPassword() {
                     <Box
                         component="form"
                         onSubmit={handleSubmit(onSubmit)}
-                        sx={{
-                            display: 'grid',
-                            gap: 2,
-                            alignItems: 'center',
-                            justifyItems: 'center'
-                        }}
+                        sx={{ display: 'grid', gap: 2, alignItems: 'center', justifyItems: 'center' }}
                     >
                         <TextField
                             label="Email"
                             type="email"
-                            placeholder="Enter your email"
                             InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
                             {...register('email', { required: true })}
-                            sx={{
-                                width: 220,
-                                backgroundColor: '#e0e0e0',
-                                borderRadius: 1,
-                                '& .MuiInputBase-input': { color: '#1b1b1b' }
-                            }}
+                            sx={{ width: 220, backgroundColor: '#e0e0e0', borderRadius: 1, '& .MuiInputBase-input': { color: '#1b1b1b' } }}
+                        />
+                        <TextField
+                            label="6-digit verification code"
+                            type="text"
+                            inputProps={{ inputMode: 'numeric', maxLength: 6 }}
+                            InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
+                            {...register('code', { required: true })}
+                            sx={{ width: 220, backgroundColor: '#e0e0e0', borderRadius: 1, '& .MuiInputBase-input': { color: '#1b1b1b' } }}
                         />
                         <Button
                             type="submit"
                             variant="contained"
-                            disabled={isLoading}
-                            sx={{
-                                mt: 1,
-                                px: 4,
-                                borderRadius: 999,
-                                backgroundColor: 'primary.main',
-                                '&:hover': { backgroundColor: '#5a5a5a' }
-                            }}
+                            disabled={isLoading || success !== null}
+                            sx={{ mt: 1, px: 4, borderRadius: 999, backgroundColor: 'primary.main', '&:hover': { backgroundColor: '#5a5a5a' } }}
                         >
-                            Send Reset Link
+                            Verify Email
                         </Button>
                     </Box>
 
                     <Typography sx={{ mt: 3, fontStyle: 'italic' }}>
-                        Remember your password?{' '}
+                        Already verified?{' '}
                         <Button
                             component={RouterLink}
                             to="/login"
@@ -142,4 +136,4 @@ function ForgotPassword() {
     )
 }
 
-export default ForgotPassword
+export default VerifyEmail

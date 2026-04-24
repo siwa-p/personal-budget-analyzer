@@ -8,6 +8,7 @@ import Profile from './pages/Profile'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import VerifyEmail from './pages/VerifyEmail'
 import Transactions from './pages/Transactions'
 import Analytics from './pages/Analytics'
 import Bills from './pages/Bills'
@@ -28,7 +29,13 @@ function App() {
     () => localStorage.getItem('sidebar_open') !== 'false'
   )
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const { signOut } = await import('aws-amplify/auth')
+      await signOut()
+    } catch {
+      // ignore signOut errors
+    }
     localStorage.removeItem('access_token')
     setHasToken(false)
     setThemeMode('light')
@@ -106,6 +113,7 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/analytics" element={<Analytics />} />
