@@ -3,14 +3,11 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import { Alert, Box, Button, TextField, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
 import { ThemeContext } from '../contexts/ThemeContext'
-import { extractApiError } from '../utils/api'
 
 type LoginValues = {
   email: string
   password: string
 }
-
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function Login() {
   const navigate = useNavigate()
@@ -25,27 +22,16 @@ function Login() {
     setIsLoading(true)
     setError(null)
     try {
-      const body = new URLSearchParams()
-      body.set('username', values.email)
-      body.set('password', values.password)
-
-      const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString()
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message = extractApiError(data, 'Invalid credentials.')
-        throw new Error(message)
-      }
-
-      const data = (await response.json()) as { access_token: string; token_type: string }
-      localStorage.setItem('access_token', data.access_token)
+      const { signIn, signOut, fetchAuthSession } = await import('aws-amplify/auth')
+      try { await signOut() } catch { /* no existing session */ }
+      await signIn({ username: values.email, password: values.password })
+      const session = await fetchAuthSession()
+      const idToken = session.tokens?.idToken?.toString()
+      if (!idToken) throw new Error('No token returned from Cognito.')
+      localStorage.setItem('access_token', idToken)
       try {
-        const profileResponse = await fetch(`${apiUrl}/api/v1/users/me`, {
-          headers: { Authorization: `Bearer ${data.access_token}` }
+        const profileResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/users/me`, {
+          headers: { Authorization: `Bearer ${idToken}` }
         })
         if (profileResponse.ok) {
           const profile = (await profileResponse.json()) as { theme?: 'light' | 'dark' }

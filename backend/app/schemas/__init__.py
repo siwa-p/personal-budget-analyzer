@@ -4,46 +4,26 @@ from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
 from app.schemas.category_feedback import CategoryFeedbackCreate, CategoryFeedbackRead
 from app.schemas.goal import GoalCreate, GoalRead, GoalUpdate, GoalWithProgress
 from app.schemas.transaction import TransactionCreate, TransactionRead, TransactionUpdate
-from app.schemas.user import (
-    Message,
-    PasswordResetConfirm,
-    PasswordResetRequest,
-    Token,
-    TokenPayload,
-    UserCreate,
-    UserRead,
-    UserUpdate,
-)
+from app.schemas.user import Message, UserCreate, UserRead, UserUpdate
 
 __all__ = [
-    # Bill schemas
     "BillCreate",
     "BillRead",
     "BillUpdate",
-    # Budget schemas
     "BudgetCreate",
     "BudgetResponse",
     "BudgetUpdate",
     "BudgetWithCategory",
-    # Category schemas
     "CategoryCreate",
-    # Category feedback schemas
     "CategoryFeedbackCreate",
     "CategoryFeedbackRead",
     "CategoryRead",
     "CategoryUpdate",
-    # Goal schemas
     "GoalCreate",
     "GoalRead",
     "GoalUpdate",
     "GoalWithProgress",
     "Message",
-    "PasswordResetConfirm",
-    "PasswordResetRequest",
-    # User schemas
-    "Token",
-    "TokenPayload",
-    # Transaction schemas
     "TransactionCreate",
     "TransactionRead",
     "TransactionUpdate",

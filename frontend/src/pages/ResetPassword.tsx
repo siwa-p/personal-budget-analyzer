@@ -1,71 +1,44 @@
-import { useState, useEffect } from 'react'
-import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import { Alert, Box, Button, Container, TextField, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
-import { extractApiError } from '../utils/api'
 
 type ResetPasswordValues = {
+    email: string
+    code: string
     newPassword: string
     confirmPassword: string
 }
 
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-
 function ResetPassword() {
     const navigate = useNavigate()
-    const [searchParams] = useSearchParams()
+    const location = useLocation()
+    const prefillEmail = (location.state as { email?: string } | null)?.email ?? ''
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
-    const [token, setToken] = useState<string | null>(null)
 
     const { register, handleSubmit } = useForm<ResetPasswordValues>({
-        defaultValues: { newPassword: '', confirmPassword: '' }
+        defaultValues: { email: prefillEmail, code: '', newPassword: '', confirmPassword: '' }
     })
-
-    useEffect(() => {
-        const tokenParam = searchParams.get('token')
-        if (!tokenParam) {
-            setError('Invalid or missing reset token.')
-        } else {
-            setToken(tokenParam)
-        }
-    }, [searchParams])
 
     const onSubmit = async (values: ResetPasswordValues) => {
         if (values.newPassword !== values.confirmPassword) {
             setError('Passwords do not match.')
             return
         }
-
-        if (!token) {
-            setError('Invalid or missing reset token.')
-            return
-        }
-
         setIsLoading(true)
         setError(null)
         setSuccess(null)
         try {
-            const response = await fetch(`${apiUrl}/api/v1/auth/reset-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, new_password: values.newPassword })
+            const { confirmResetPassword } = await import('aws-amplify/auth')
+            await confirmResetPassword({
+                username: values.email,
+                confirmationCode: values.code,
+                newPassword: values.newPassword,
             })
-
-            if (!response.ok) {
-                const data = await response.json().catch(() => null)
-                const message = extractApiError(data, 'Failed to reset password.')
-                throw new Error(message)
-            }
-
-            const data = (await response.json()) as { message: string }
-            setSuccess(data.message)
-
-            // Redirect to login after 2 seconds
-            setTimeout(() => {
-                navigate('/login')
-            }, 2000)
+            setSuccess('Password updated successfully.')
+            setTimeout(() => navigate('/login'), 2000)
         } catch (fetchError) {
             setError(fetchError instanceof Error ? fetchError.message : 'Unknown error.')
         } finally {
@@ -130,50 +103,41 @@ function ResetPassword() {
                     <Box
                         component="form"
                         onSubmit={handleSubmit(onSubmit)}
-                        sx={{
-                            display: 'grid',
-                            gap: 2,
-                            alignItems: 'center',
-                            justifyItems: 'center'
-                        }}
+                        sx={{ display: 'grid', gap: 2, alignItems: 'center', justifyItems: 'center' }}
                     >
+                        <TextField
+                            label="Email"
+                            type="email"
+                            InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
+                            {...register('email', { required: true })}
+                            sx={{ width: 220, backgroundColor: '#e0e0e0', borderRadius: 1, '& .MuiInputBase-input': { color: '#1b1b1b' } }}
+                        />
+                        <TextField
+                            label="6-digit code from email"
+                            type="text"
+                            InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
+                            {...register('code', { required: true })}
+                            sx={{ width: 220, backgroundColor: '#e0e0e0', borderRadius: 1, '& .MuiInputBase-input': { color: '#1b1b1b' } }}
+                        />
                         <TextField
                             label="New Password"
                             type="password"
-                            placeholder="Enter new password"
                             InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
                             {...register('newPassword', { required: true, minLength: 8 })}
-                            sx={{
-                                width: 220,
-                                backgroundColor: '#e0e0e0',
-                                borderRadius: 1,
-                                '& .MuiInputBase-input': { color: '#1b1b1b' }
-                            }}
+                            sx={{ width: 220, backgroundColor: '#e0e0e0', borderRadius: 1, '& .MuiInputBase-input': { color: '#1b1b1b' } }}
                         />
                         <TextField
                             label="Confirm Password"
                             type="password"
-                            placeholder="Confirm new password"
                             InputLabelProps={{ shrink: true, sx: { color: 'black', fontWeight: 700 } }}
                             {...register('confirmPassword', { required: true, minLength: 8 })}
-                            sx={{
-                                width: 220,
-                                backgroundColor: '#e0e0e0',
-                                borderRadius: 1,
-                                '& .MuiInputBase-input': { color: '#1b1b1b' }
-                            }}
+                            sx={{ width: 220, backgroundColor: '#e0e0e0', borderRadius: 1, '& .MuiInputBase-input': { color: '#1b1b1b' } }}
                         />
                         <Button
                             type="submit"
                             variant="contained"
-                            disabled={isLoading || !token || success !== null}
-                            sx={{
-                                mt: 1,
-                                px: 4,
-                                borderRadius: 999,
-                                backgroundColor: 'primary.main',
-                                '&:hover': { backgroundColor: '#5a5a5a' }
-                            }}
+                            disabled={isLoading || success !== null}
+                            sx={{ mt: 1, px: 4, borderRadius: 999, backgroundColor: 'primary.main', '&:hover': { backgroundColor: '#5a5a5a' } }}
                         >
                             Reset Password
                         </Button>

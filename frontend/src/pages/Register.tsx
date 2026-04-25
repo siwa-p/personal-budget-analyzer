@@ -2,25 +2,12 @@ import { useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import { Alert, Box, Button, Container, TextField, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
-import { extractApiError } from '../utils/api'
-
 type RegisterValues = {
   firstName: string
   lastName: string
   username?: string
   email: string
   password: string
-}
-
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-
-const normalizeUsername = (value: string) => {
-  const cleaned = value
-    .toLowerCase()
-    .replace(/[^a-z0-9.]/g, '.')
-    .replace(/\.+/g, '.')
-    .replace(/^\.|\.$/g, '')
-  return cleaned || 'user'
 }
 
 function Register() {
@@ -38,32 +25,27 @@ function Register() {
     setSuccess(null)
     try {
       const fullName = `${values.firstName} ${values.lastName}`.trim()
-      const emailPrefix = values.email.split('@')[0] || ''
-      const usernameSeed =
-        values.username?.trim() || `${values.firstName}.${values.lastName}`.trim() || emailPrefix
-      const username = normalizeUsername(usernameSeed || emailPrefix)
-
-      const response = await fetch(`${apiUrl}/api/v1/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username,
-          email: values.email,
-          full_name: fullName || null,
-          password: values.password
+      const { signUp, resendSignUpCode } = await import('aws-amplify/auth')
+      try {
+        await signUp({
+          username: values.email,
+          password: values.password,
+          options: {
+            userAttributes: { email: values.email, name: fullName },
+            autoSignIn: false,
+          },
         })
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message = extractApiError(data, 'Failed to register user.')
-        throw new Error(message)
+      } catch (signUpError: unknown) {
+        // If the user exists but never verified, resend the code instead of erroring
+        const name = (signUpError as { name?: string }).name
+        if (name === 'UsernameExistsException') {
+          await resendSignUpCode({ username: values.email })
+        } else {
+          throw signUpError
+        }
       }
-
-      setSuccess('Registration completed. Redirecting to login...')
-      setTimeout(() => {
-        navigate('/login')
-      }, 1200)
+      setSuccess('Check your email for a 6-digit verification code.')
+      setTimeout(() => navigate('/verify-email', { state: { email: values.email } }), 1500)
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : 'Unknown error.')
     } finally {
