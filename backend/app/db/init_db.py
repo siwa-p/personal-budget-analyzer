@@ -154,7 +154,12 @@ PREDEFINED_CATEGORIES = [
 def init_superuser(db: Session) -> None:
     user = crud.user.get_by_email(db, email=settings.FIRST_SUPERUSER_EMAIL.lower())
     if user:
-        logger.info(f"Superuser '{settings.FIRST_SUPERUSER_EMAIL}' already exists. Skipping creation.")
+        if not user.is_superuser:
+            user.is_superuser = True
+            db.commit()
+            logger.info(f"Promoted existing user '{settings.FIRST_SUPERUSER_EMAIL}' to superuser.")
+        else:
+            logger.info(f"Superuser '{settings.FIRST_SUPERUSER_EMAIL}' already exists.")
         return
     user_in = schemas.UserCreate(
         email=settings.FIRST_SUPERUSER_EMAIL,

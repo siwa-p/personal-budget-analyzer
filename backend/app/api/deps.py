@@ -5,7 +5,7 @@ import urllib.request
 from typing import Annotated, TypeAlias
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,7 +16,7 @@ from app.core.logger_init import setup_logging
 from app.db.session import get_db
 
 logger = setup_logging()
-reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="")
+reusable_oauth2 = HTTPBearer()
 
 DbSession: TypeAlias = Annotated[Session, Depends(get_db)]
 
@@ -36,7 +36,8 @@ def _get_jwks() -> dict:
     return _jwks_cache
 
 
-def get_current_user(db: DbSession, token: str = Depends(reusable_oauth2)) -> models.User:
+def get_current_user(db: DbSession, credentials: HTTPAuthorizationCredentials = Depends(reusable_oauth2)) -> models.User:
+    token = credentials.credentials
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",

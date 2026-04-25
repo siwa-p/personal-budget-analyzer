@@ -22,7 +22,8 @@ function Login() {
     setIsLoading(true)
     setError(null)
     try {
-      const { signIn, fetchAuthSession } = await import('aws-amplify/auth')
+      const { signIn, signOut, fetchAuthSession } = await import('aws-amplify/auth')
+      try { await signOut() } catch { /* no existing session */ }
       await signIn({ username: values.email, password: values.password })
       const session = await fetchAuthSession()
       const idToken = session.tokens?.idToken?.toString()
