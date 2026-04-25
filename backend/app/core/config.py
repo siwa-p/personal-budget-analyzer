@@ -10,9 +10,9 @@ class Settings(BaseSettings):
 
     BACKEND_CORS_ORIGINS: list = ["http://localhost:5173", "http://localhost:3000"]
 
-    FIRST_SUPERUSER_EMAIL: str = "admin@example.com"
-    FIRST_SUPERUSER_PASSWORD: str = "admin1234"
-    FIRST_SUPERUSER_USERNAME: str = "admin"
+    FIRST_SUPERUSER_EMAIL: str
+    FIRST_SUPERUSER_PASSWORD: str
+    FIRST_SUPERUSER_USERNAME: str
     FIRST_SUPERUSER_FULL_NAME: str | None = None
 
     COGNITO_USER_POOL_ID: str

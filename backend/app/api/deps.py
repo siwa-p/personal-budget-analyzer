@@ -58,16 +58,17 @@ def get_current_user(db: DbSession, credentials: HTTPAuthorizationCredentials = 
     if not cognito_sub:
         raise credentials_exception
 
+    if not payload.get("email_verified", False):
+        raise credentials_exception
+
     user = db.execute(select(models.User).where(models.User.cognito_sub == cognito_sub)).scalar_one_or_none()
     if user is None:
         from app.core.security import get_password_hash
         email = payload.get("email", "")
         base_username = email.split("@")[0]
-        username = base_username
-        i = 1
+        username = f"{base_username}_{secrets.token_hex(4)}"
         while db.execute(select(models.User).where(models.User.username == username)).scalar_one_or_none():
-            username = f"{base_username}{i}"
-            i += 1
+            username = f"{base_username}_{secrets.token_hex(4)}"
         user = models.User(
             email=email,
             username=username,

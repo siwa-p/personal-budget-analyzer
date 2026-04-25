@@ -2,7 +2,7 @@
 
 Track spending, set budgets, and reach your savings goals — all in one place.
 
-**[Try it live →](https://drejienhbulqa.cloudfront.net)**
+**[Try it live →](#)** *(link available on request)*
 
 ---
 
@@ -26,7 +26,7 @@ Track spending, set budgets, and reach your savings goals — all in one place.
 
 ## Getting started
 
-1. Go to [drejienhbulqa.cloudfront.net](https://drejienhbulqa.cloudfront.net)
+1. Go to the live app (link above)
 2. Create an account — you'll get a verification email from AWS Cognito
 3. Start adding transactions
 
